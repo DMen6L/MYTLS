@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import curses
+import time
 
 # =================
 # STANDARD COMMANDS
@@ -13,12 +14,35 @@ def greet(args):
 # ====================
 def tui(stdscr):
     # TODO: add todolist, date+time work
-    stdscr.clear()
 
-    stdscr.addstr("Welcome")
+    """
+    Docstring for tui
+    
+    ? newpad(), newwin(), time.sleep()
+    """
 
-    stdscr.refresh()
-    stdscr.getch()
+    GREET = "!!!! Welcome to MYTLS !!!!"
+    GREET_LEN = len(GREET)
+
+    h, w = stdscr.getmaxyx() # Height and width of the terminal
+
+    welcome_pad = curses.newpad(1, w+GREET_LEN)
+
+    i = 0
+
+    while True:
+        welcome_pad.clear()
+
+        welcome_pad.addstr(0, i, GREET)
+
+        if i > w-GREET_LEN:
+            welcome_pad.addstr(0, 0, GREET[-(i+GREET_LEN-w):])
+
+        i = (i+1) % w
+
+        welcome_pad.refresh(0, 0, 0, 0, 0, w-1)
+
+        time.sleep(0.1)
 
 # ========
 # CLI INIT
