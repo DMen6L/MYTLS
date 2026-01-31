@@ -1,10 +1,29 @@
 import curses
-import time
 
-test_todos = [""]
+PATHS = {
+    "TODO": "todo_tasks.txt"
+}
+
+test_todos = []
 CTRL_B = 2
 CTRL_F = 6
 ESC = 27
+
+# Get and save todo tasks
+def get_todos():
+    global test_todos
+
+    with open(PATHS["TODO"], "r") as f:
+        lines = [line.strip() for line in f.readlines()]
+
+        test_todos = lines
+def save_todos():
+    global test_todos
+    
+    with open(PATHS["TODO"], "w") as f:
+        for todo in test_todos:
+            f.write(todo + '\n')
+    
 
 def draw_todo(stdscr, header_win, options_win, h, w):
     stdscr.keypad(True)
@@ -33,14 +52,18 @@ def draw_todo(stdscr, header_win, options_win, h, w):
         todo_win.refresh()
         alert_win.refresh()
 
+        # Key control
         key = stdscr.getch()
 
         if key == -1:
             continue
         
+        # Go back to main
         if key == CTRL_B:
+            save_todos()
             break
 
+        # Add new task
         if key == CTRL_F:
             y, x = todo_win.getmaxyx()
             todo_win.resize(y+1, x)
@@ -49,16 +72,18 @@ def draw_todo(stdscr, header_win, options_win, h, w):
             curr_todo = len(test_todos)-1
             continue
 
+        # Move up the list
         if key == curses.KEY_UP:
             if curr_todo > 0:
                 curr_todo -= 1
             continue
 
+        # Move down the list
         if key == curses.KEY_DOWN:
             if curr_todo < len(test_todos)-1:
                 curr_todo += 1
             continue
-
+        
         if key in (curses.KEY_BACKSPACE, 127, 8):
             test_todos[curr_todo] = test_todos[curr_todo][:-1]
             continue
@@ -94,7 +119,7 @@ def run_tui(stdscr):
     stdscr.keypad(True)
     stdscr.clear()
 
-    curr_opt = 0 # CUrrent chosen option counter
+    curr_opt = 0 # Current chosen option counter
 
     # stdscr.addstr(h-1, w-19, "press 'q' to leave", CHOSEN_OPT | curses.A_BOLD)
 
@@ -123,6 +148,7 @@ def run_tui(stdscr):
             opt = OPTIONS[curr_opt]
 
             if opt == "TODO":
+                get_todos()
                 draw_todo(stdscr, header_win, options_win, h, w)
                 curses.flushinp()
 
