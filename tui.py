@@ -1,43 +1,36 @@
 import curses
+from typing import List
 
-PATHS = {
-    "TODO": "todo_tasks.txt"
-}
-
-test_todos = []
 CTRL_B = 2
 CTRL_F = 6
 ESC = 27
 
 # Get and save todo tasks
-def get_todos():
-    global test_todos
-
-    with open(PATHS["TODO"], "r") as f:
-        lines = [line.strip() for line in f.readlines()]
-
-        test_todos = lines
-def save_todos():
-    global test_todos
-    
-    with open(PATHS["TODO"], "w") as f:
-        for todo in test_todos:
-            f.write(todo + '\n')
+def get_file_data(path: str):
+    try:
+        with open(path, "r") as f:
+            return [line.strip() for line in f]
+    except FileNotFoundError:
+        return []
+def save_to_file(task_list: List[str], path: str):
+    with open(path, "w") as f:
+        for el in task_list:
+            f.write(el + '\n')
     
 
-def draw_todo(stdscr, header_win, options_win, h, w):
+def draw_todo(stdscr, header_win, options_win, h, w, tasks):
     stdscr.keypad(True)
 
     # Clearing the panel
     header_win.erase()
     options_win.erase()
 
-    todo_win = curses.newwin(len(test_todos)+1, w-1, 1, 1)
+    tasks_win = curses.newwin(len(tasks)+1, w-1, 1, 1)
     alert_win = curses.newwin(1, w-1, h-1, 1)
     
     options_win.refresh()
 
-    curr_todo = 0
+    curr_task = 0
 
     while True:
         header_win.addstr(0, int(w/2)-10, "TO DO LIST")
@@ -45,11 +38,11 @@ def draw_todo(stdscr, header_win, options_win, h, w):
         alert_win.addstr(0, 0, "^B to turn back")
         alert_win.addstr(0, 16, "^F for new task")
 
-        for i, todo in enumerate(test_todos):
-            todo_win.addstr(i, 1, f"{i}. {todo}")
+        for i, task in enumerate(tasks):
+            tasks_win.addstr(i, 1, f"{i}. {task}")
 
         header_win.refresh()
-        todo_win.refresh()
+        tasks_win.refresh()
         alert_win.refresh()
 
         # Key control
@@ -60,38 +53,38 @@ def draw_todo(stdscr, header_win, options_win, h, w):
         
         # Go back to main
         if key == CTRL_B:
-            save_todos()
+            save_to_file(tasks, "todo_tasks.txt")
             break
 
         # Add new task
         if key == CTRL_F:
-            y, x = todo_win.getmaxyx()
-            todo_win.resize(y+1, x)
+            y, x = tasks_win.getmaxyx()
+            tasks_win.resize(y+1, x)
 
-            test_todos.append("")
-            curr_todo = len(test_todos)-1
+            tasks.append("")
+            curr_task = len(tasks)-1
             continue
 
         # Move up the list
         if key == curses.KEY_UP:
-            if curr_todo > 0:
-                curr_todo -= 1
+            if curr_task > 0:
+                curr_task -= 1
             continue
 
         # Move down the list
         if key == curses.KEY_DOWN:
-            if curr_todo < len(test_todos)-1:
-                curr_todo += 1
+            if curr_task < len(tasks)-1:
+                curr_task += 1
             continue
         
         if key in (curses.KEY_BACKSPACE, 127, 8):
-            test_todos[curr_todo] = test_todos[curr_todo][:-1]
+            tasks[curr_task] = tasks[curr_task][:-1]
             continue
 
         if 32 <= key <= 126:
-            test_todos[curr_todo] += chr(key)
+            tasks[curr_task] += chr(key)
             
-        todo_win.erase()
+        tasks_win.erase()
     
     stdscr.clear()
     
@@ -148,8 +141,8 @@ def run_tui(stdscr):
             opt = OPTIONS[curr_opt]
 
             if opt == "TODO":
-                get_todos()
-                draw_todo(stdscr, header_win, options_win, h, w)
+                todos = get_file_data("todo_tasks.txt")
+                draw_todo(stdscr, header_win, options_win, h, w, todos)
                 curses.flushinp()
 
     stdscr.clear()
