@@ -2,11 +2,21 @@ from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from ui import render_layout
+
+from state import AppState
+
+import threading
 import time
 
 console = Console()
 
-def run_tui():
+def tui_input():
+    pass
+
+def run_tui(app: AppState):
+    if app.state != "run tui":
+        return None
+    
     layout = render_layout()
     
     with Live(
