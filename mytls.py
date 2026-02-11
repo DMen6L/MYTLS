@@ -3,13 +3,13 @@ from tui import run_tui
 from state import AppState
 
 app = typer.Typer()
-app = AppState()
+app_state = AppState()
 
 @app.command(short_help="test")
 def tui():
-    app.state = "run tui"
+    app_state.state = "run tui"
 
-    run_tui(app)
+    run_tui(app_state)
 
 @app.command(short_help="test")
 def test():

@@ -3,7 +3,9 @@ from rich.table import Table
 from rich.layout import Layout
 from rich.align import Align
 
-def render_layout():
+from state import AppState
+
+def render_layout(app: AppState):
     layout = Layout()
 
     # Table layout
@@ -13,13 +15,13 @@ def render_layout():
     table.add_column("Type")
     table.add_column("Status")
 
-    table.add_row("1", "asdasd", "sadas", ":x:")
-    table.add_row(
-        "2", 
-        "shop", 
-        "Daily",
-        ":white_heavy_check_mark:"
-    )
+    for todo in app.todos:
+        table.add_row(
+            str(todo["id"]),
+            todo["task"],
+            todo["type"],
+            Align.center(todo["status"])
+        )
 
     # Basic layout
     layout.split_column(
@@ -29,6 +31,10 @@ def render_layout():
             ),
         Layout(
             name="body"
+        ),
+        Layout(
+            name="input",
+            size=3
         ),
         Layout(
             name="footer",
@@ -49,6 +55,15 @@ def render_layout():
     # Body layout
     layout["body"].update(
         Align.center(table)
+    )
+
+    layout["input"].update(
+        Layout(
+            Panel(
+                app.input_text,
+                style="bold cyan"
+            )
+        )
     )
 
     # Footer layout
