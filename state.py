@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List
+from database import Task
 
 @dataclass
 class AppState():
     state: str = "root"
     running: bool = True
     input_text: str = ""
-    todos: List[Dict[str, str]] = field(default_factory=list)
+    curr_tasks: List[Task] = field(default_factory=list)

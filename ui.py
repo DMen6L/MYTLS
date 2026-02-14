@@ -2,8 +2,10 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.layout import Layout
 from rich.align import Align
+from typing import List
 
 from state import AppState
+from database import Task
 
 def render_layout(app: AppState):
     layout = Layout()
@@ -13,14 +15,12 @@ def render_layout(app: AppState):
     table.add_column("Id")
     table.add_column("Task")
     table.add_column("Type")
+    table.add_column("Details", width=50)
     table.add_column("Status")
 
-    for todo in app.todos:
+    for task in app.curr_tasks:
         table.add_row(
-            str(todo["id"]),
-            todo["task"],
-            todo["type"],
-            Align.center(todo["status"])
+            *task.get_task_info()
         )
 
     # Basic layout

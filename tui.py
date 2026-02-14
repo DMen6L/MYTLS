@@ -10,7 +10,10 @@ from readchar import key
 import threading
 import time
 
+from database import TasksManager, Task
+
 console = Console()
+tasks_manager = TasksManager()
 
 def tui_input(app: AppState):
     while app.running:
@@ -20,31 +23,35 @@ def tui_input(app: AppState):
         if k == key.ENTER:
             # If no arguments, return
             if not app.input_text.strip():
-                return
+                app.input_text = ""
+                continue
             
             # Break down the command
             comps = app.input_text.strip().split()
             if not comps:
                 app.input_text = ""
-                return
+                continue
 
             if comps[0] == "\\q":
                 app.state = "root"
                 app.running = False
                 return
             
+            # Add a task
             if comps[0] == "ADD":
                 if len(comps) < 2:
                     pass
                 else:
-                    app.todos.append(
-                        {
-                            "id": len(app.todos) + 1,
-                            "task": " ".join(comps[1:]),
-                            "type": "Daily",
-                            "status": ":x:"
-                        }
+                    new_task = Task(
+                        id=len(app.curr_tasks)+1,
+                        task_name=comps[1],
+                        task_details="None",
+                        task_type="Once",
+                        status="Not Done"
                     )
+
+                    tasks_manager.add_task(new_task)
+                    app.curr_tasks.append(new_task)
             
             app.input_text = ""
 
@@ -56,6 +63,8 @@ def tui_input(app: AppState):
 def run_tui(app: AppState):
     if app.state != "run tui":
         return None
+
+    app.curr_tasks = tasks_manager.get_tasks()
     
     threading.Thread(target=tui_input, args=(app,), daemon=True).start()
     
