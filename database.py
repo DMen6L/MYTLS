@@ -25,19 +25,19 @@ class Task():
     task_type: str = ""
     status: str = ""
 
-    def __init__(
-        self,
-        id: int,
-        task_name: str,
-        task_details: str,
-        task_type: str,
-        status: str
-    ):
-        self.id = id
-        self.task_name = task_name
-        self.task_details = task_details
-        self.task_type = task_type
-        self.status = status
+    # def __init__(
+    #     self,
+    #     id: int,
+    #     task_name: str,
+    #     task_details: str,
+    #     task_type: str,
+    #     status: str
+    # ):
+    #     self.id = id
+    #     self.task_name = task_name
+    #     self.task_details = task_details
+    #     self.task_type = task_type
+    #     self.status = status
 
     def get_task_info(self):
         return [
@@ -72,15 +72,34 @@ class TasksManager():
     
     def update_task():
         pass
+
+    def select_task(self, id:int) -> Task:
+        self.cur.execute(
+            """
+                SELECT * FROM tasks WHERE id = %s
+            """,
+            (id,)
+        )
+        
+        row = self.cur.fetchone()
+
+        if row is None:
+            return None
+
+        return Task(**row)
     
-    def delete_task(self, id:int):
+    def delete_task(self, del_task: Task) -> bool:
+        if del_task.task_type == "Daily":
+            return False
+
         self.cur.execute(
             """
             DELETE FROM tasks WHERE id = %s
             """,
-            (id,)
+            (del_task.id,)
         )
         self.conn.commit()
+        return True
     
     def close_conn(self):
         self.cur.close()

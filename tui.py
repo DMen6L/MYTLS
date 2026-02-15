@@ -36,22 +36,33 @@ def tui_input(app: AppState):
                 app.state = "root"
                 app.running = False
                 return
+
+            if len(comps) < 2:
+                app.input_text = ""
+                continue
             
             # Add a task
             if comps[0] == "ADD":
-                if len(comps) < 2:
-                    pass
-                else:
-                    new_task = Task(
-                        id=len(app.curr_tasks)+1,
-                        task_name=comps[1],
-                        task_details="None",
-                        task_type="Once",
-                        status="Not Done"
-                    )
+                new_task = Task(
+                    id=len(app.curr_tasks)+1,
+                    task_name=comps[1],
+                    task_details="None",
+                    task_type="Once",
+                    status="Not Done"
+                )
+                tasks_manager.add_task(new_task)
+                app.curr_tasks.append(new_task)
 
-                    tasks_manager.add_task(new_task)
-                    app.curr_tasks.append(new_task)
+            # Delete a task
+            if comps[0] == "DEL":
+                del_task = tasks_manager.select_task(int(comps[1]))
+
+                if del_task is None:
+                    app.input_text = ""
+                    continue
+
+                if tasks_manager.delete_task(del_task):
+                    app.curr_tasks.remove(del_task)
             
             app.input_text = ""
 
