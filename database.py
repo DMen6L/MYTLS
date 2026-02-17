@@ -53,12 +53,13 @@ class TasksManager():
         self.conn = get_db_connection()
         self.cur = self.conn.cursor()
 
-    def add_task(self, task: Task):
+    def add(self, task: Task):
         self.cur.execute(
-            f"""
-            INSERT INTO tasks (task_name, task_details, task_type, status)
-            VALUES ('{task.task_name}', '{task.task_details}', '{task.task_type}', '{task.status}')
             """
+            INSERT INTO tasks (task_name, task_details, task_type, status)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (task.task_name, task.task_details, task.task_type, task.status)
         )
         self.conn.commit()
     
@@ -70,10 +71,14 @@ class TasksManager():
         )
         return [Task(**task) for task in self.cur.fetchall()]
     
-    def update_task():
-        pass
+    def update(self, task: Task):
+        self.cur.execute(
+            "UPDATE tasks SET task_name = %s, task_details = %s, task_type = %s, status = %s WHERE id = %s",
+            (task.task_name, task.task_details, task.task_type, task.status, task.id)
+        )
+        self.conn.commit()
 
-    def select_task(self, id:int) -> Task:
+    def select(self, id:int) -> Task:
         self.cur.execute(
             """
                 SELECT * FROM tasks WHERE id = %s
@@ -85,10 +90,9 @@ class TasksManager():
 
         if row is None:
             return None
-
         return Task(**row)
     
-    def delete_task(self, del_task: Task) -> bool:
+    def delete(self, del_task: Task) -> bool:
         if del_task.task_type == "Daily":
             return False
 

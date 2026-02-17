@@ -9,11 +9,33 @@ import readchar
 from readchar import key
 import threading
 import time
+from typing import List, Dict
 
 from database import TasksManager, Task
 
 console = Console()
 tasks_manager = TasksManager()
+
+def parse_flags(comps: List[str]) -> dict:
+    """Parse flag-based input like: -n Task name -d Details -t Once -s Not Done"""
+    flags = {"-n": "task_name", "-d": "task_details", "-t": "task_type", "-s": "status"}
+    result = {}
+    current_flag = None
+    current_value = []
+
+    for token in " ".join(comps).split():
+        if token in flags:
+            if current_flag:
+                result[flags[current_flag]] = " ".join(current_value)
+            current_flag = token
+            current_value = []
+        else:
+            current_value.append(token)
+
+    if current_flag:
+        result[flags[current_flag]] = " ".join(current_value)
+
+    return result
 
 def tui_input(app: AppState):
     while app.running:
@@ -27,12 +49,14 @@ def tui_input(app: AppState):
                 continue
             
             # Break down the command
-            comps = app.input_text.strip().split()
-            if not comps:
+            command, *comps = app.input_text.strip().split()
+
+            if not command:
                 app.input_text = ""
                 continue
 
-            if comps[0] == "\\q":
+            # Exit
+            if command == "\\q":
                 app.state = "root"
                 app.running = False
                 return
@@ -42,27 +66,52 @@ def tui_input(app: AppState):
                 continue
             
             # Add a task
-            if comps[0] == "ADD":
+            if command == "\\add":
+                fields = parse_flags(comps)
                 new_task = Task(
                     id=len(app.curr_tasks)+1,
-                    task_name=comps[1],
-                    task_details="None",
-                    task_type="Once",
-                    status="Not Done"
+                    task_name=fields.get("task_name", "Untitled"),
+                    task_details=fields.get("task_details", "None"),
+                    task_type=fields.get("task_type", "Once"),
+                    status=fields.get("status", "Not Done"),
                 )
-                tasks_manager.add_task(new_task)
+
+                tasks_manager.add(new_task)
                 app.curr_tasks.append(new_task)
 
             # Delete a task
-            if comps[0] == "DEL":
-                del_task = tasks_manager.select_task(int(comps[1]))
+            if command == "\\del":
+                del_task = tasks_manager.select(int(comps[1]))
 
                 if del_task is None:
                     app.input_text = ""
                     continue
 
-                if tasks_manager.delete_task(del_task):
+                if tasks_manager.delete(del_task):
                     app.curr_tasks.remove(del_task)
+            
+            # Update a task
+            if command == "\\update":
+                if len(comps) < 2:
+                    app.input_text = ""
+                    continue   
+                task_id = int(comps[1])
+                existing = tasks_manager.select(task_id)
+                if existing is None:
+                    app.input_text = ""
+                    continue
+
+                fields = parse_flags(" ".join(comps[2:]))
+                existing.task_name = fields.get("task_name", existing.task_name)
+                existing.task_details = fields.get("task_details", existing.task_details)
+                existing.task_type = fields.get("task_type", existing.task_type)
+                existing.status = fields.get("status", existing.status)
+                tasks_manager.update(existing)
+                
+                for i, t in enumerate(app.curr_tasks):
+                    if t.id == task_id:
+                        app.curr_tasks[i] = existing
+                        break
             
             app.input_text = ""
 
