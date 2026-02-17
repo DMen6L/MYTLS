@@ -1,9 +1,10 @@
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from ui import render_layout
 
+from ui import render_layout
 from state import AppState
+from database import TasksManager, Task
 
 import readchar
 from readchar import key
@@ -11,12 +12,10 @@ import threading
 import time
 from typing import List, Dict
 
-from database import TasksManager, Task
-
 console = Console()
 tasks_manager = TasksManager()
 
-def parse_flags(comps: List[str]) -> dict:
+def parse_flags(comps: List[str]) -> Dict[str, str]:
     """Parse flag-based input like: -n Task name -d Details -t Once -s Not Done"""
     flags = {"-n": "task_name", "-d": "task_details", "-t": "task_type", "-s": "status"}
     result = {}
@@ -38,6 +37,10 @@ def parse_flags(comps: List[str]) -> dict:
     return result
 
 def tui_input(app: AppState):
+    """
+    Handle user input in the TUI.
+    """
+
     while app.running:
         k = readchar.readkey()
 
@@ -121,6 +124,10 @@ def tui_input(app: AppState):
             app.input_text += k
 
 def run_tui(app: AppState):
+    """
+    Run the TUI.
+    """
+
     if app.state != "run tui":
         return None
 
