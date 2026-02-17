@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from dataclasses import dataclass
 from typing import List
 
+from TypeDefaults import Status, TaskType
+
 load_dotenv()
 
 def get_db_connection():
@@ -25,8 +27,14 @@ class Task():
     id: int
     task_name: str = ""
     task_details: str = ""
-    task_type: str = ""
-    status: str = ""
+    task_type: TaskType = TaskType.Once
+    status: Status = Status.NotDone
+
+    def __post_init__(self):
+        if isinstance(self.task_type, str):
+            self.task_type = TaskType(self.task_type)
+        if isinstance(self.status, str):
+            self.status = Status(self.status)
 
     # def __init__(
     #     self,
@@ -46,9 +54,9 @@ class Task():
         return [
             str(self.id),
             self.task_name, 
+            self.task_type.value,
             self.task_details,
-            self.task_type,
-            self.status
+            self.status.value
         ]
 
 class TasksManager():
@@ -56,7 +64,6 @@ class TasksManager():
         """
         Initialize the TasksManager.
         """
-
         self.conn = get_db_connection()
         self.cur = self.conn.cursor()
 
@@ -64,13 +71,12 @@ class TasksManager():
         """
         Add a new task to the database.
         """
-
         self.cur.execute(
             """
             INSERT INTO tasks (task_name, task_details, task_type, status)
             VALUES (%s, %s, %s, %s)
             """,
-            (task.task_name, task.task_details, task.task_type, task.status)
+            (task.task_name, task.task_details, task.task_type.value, task.status.value)
         )
         self.conn.commit()
     
@@ -78,7 +84,6 @@ class TasksManager():
         """
         Retrieve all tasks from the database.
         """
-
         self.cur.execute(
             """
             SELECT * FROM tasks
@@ -90,10 +95,9 @@ class TasksManager():
         """
         Update a task in the database.
         """
-
         self.cur.execute(
             "UPDATE tasks SET task_name = %s, task_details = %s, task_type = %s, status = %s WHERE id = %s",
-            (task.task_name, task.task_details, task.task_type, task.status, task.id)
+            (task.task_name, task.task_details, task.task_type.value, task.status.value, task.id,)
         )
         self.conn.commit()
 
@@ -115,8 +119,7 @@ class TasksManager():
         """
         Delete a task from the database.
         """
-
-        if del_task.task_type == "Daily":
+        if del_task.task_type == TaskType.Daily:
             return False
 
         self.cur.execute(
@@ -132,6 +135,5 @@ class TasksManager():
         """
         Close the database connection.
         """
-
         self.cur.close()
         self.conn.close()
