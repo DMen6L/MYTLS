@@ -12,6 +12,7 @@ from readchar import key
 import threading
 import time
 from typing import List, Dict
+from datetime import datetime
 
 VALID_TYPES = {e.value for e in TaskType}
 VALID_STATUSES = {e.value for e in Status}
@@ -24,12 +25,22 @@ def validate_enums(fields: Dict[str, str]) -> bool:
         return False
     return True
 
+def parse_due_date(date_str: str):
+    """Parse a date string into a datetime object. Returns None if parsing fails."""
+    formats = ["%Y-%m-%d %H:%M", "%Y-%m-%d", "%d.%m.%Y"]
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            continue
+    return None
+
 console = Console()
 tasks_manager = TasksManager()
 
 def parse_flags(comps: List[str]) -> Dict[str, str]:
     """Parse flag-based input like: -n Task name -d Details -t Once -s Not Done"""
-    flags = {"-n": "task_name", "-d": "task_details", "-t": "task_type", "-s": "status"}
+    flags = {"-n": "task_name", "-d": "task_details", "-t": "task_type", "-s": "status", "-due": "due_date"}
     result = {}
     current_flag = None
     current_value = []
@@ -91,6 +102,7 @@ def tui_input(app: AppState):
                     task_details=fields.get("task_details", "None"),
                     task_type=TaskType(fields.get("task_type", "Once")),
                     status=Status(fields.get("status", "Not Done")),
+                    due_date=parse_due_date(fields["due_date"]) if "due_date" in fields else None,
                 )
 
                 tasks_manager.add(new_task)
@@ -127,6 +139,8 @@ def tui_input(app: AppState):
                     existing.task_type = TaskType(fields["task_type"])
                 if "status" in fields:
                     existing.status = Status(fields["status"])
+                if "due_date" in fields:
+                    existing.due_date = parse_due_date(fields["due_date"])
                 
                 tasks_manager.update(existing)
                 

@@ -3,7 +3,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
 from TypeDefaults import Status, TaskType
 
@@ -29,26 +30,15 @@ class Task():
     task_details: str = ""
     task_type: TaskType = TaskType.Once
     status: Status = Status.NotDone
+    due_date: Optional[datetime] = None
 
     def __post_init__(self):
         if isinstance(self.task_type, str):
             self.task_type = TaskType(self.task_type)
         if isinstance(self.status, str):
             self.status = Status(self.status)
-
-    # def __init__(
-    #     self,
-    #     id: int,
-    #     task_name: str,
-    #     task_details: str,
-    #     task_type: str,
-    #     status: str
-    # ):
-    #     self.id = id
-    #     self.task_name = task_name
-    #     self.task_details = task_details
-    #     self.task_type = task_type
-    #     self.status = status
+        if isinstance(self.due_date, str) and self.due_date:
+            self.due_date = datetime.fromisoformat(self.due_date)
 
     def get_task_info(self) -> List[str]:
         return [
@@ -56,7 +46,18 @@ class Task():
             self.task_name, 
             self.task_type.value,
             self.task_details,
-            self.status.value
+            self.status.value,
+            self.due_date.strftime("%Y-%m-%d %H:%M") if self.due_date else ""
+        ]
+
+    def get_sql_values(self) -> list:
+        return [
+            self.id,
+            self.task_name,
+            self.task_details,
+            self.task_type.value,
+            self.status.value,
+            self.due_date
         ]
 
 class TasksManager():
@@ -73,10 +74,10 @@ class TasksManager():
         """
         self.cur.execute(
             """
-            INSERT INTO tasks (task_name, task_details, task_type, status)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO tasks (task_name, task_details, task_type, status, due_date)
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            (task.task_name, task.task_details, task.task_type.value, task.status.value)
+            tuple(task.get_sql_values()[1:])
         )
         self.conn.commit()
     
@@ -96,8 +97,8 @@ class TasksManager():
         Update a task in the database.
         """
         self.cur.execute(
-            "UPDATE tasks SET task_name = %s, task_details = %s, task_type = %s, status = %s WHERE id = %s",
-            (task.task_name, task.task_details, task.task_type.value, task.status.value, task.id,)
+            "UPDATE tasks SET task_name = %s, task_details = %s, task_type = %s, status = %s, due_date = %s WHERE id = %s",
+            (*task.get_sql_values()[1:], task.id)
         )
         self.conn.commit()
 
