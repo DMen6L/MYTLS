@@ -18,6 +18,7 @@ def render_layout(app: AppState):
     table.add_column("Details", width=50)
     table.add_column("Status")
     table.add_column("Due Date")
+    table.add_column("Streak")
 
     for task in app.curr_tasks:
         table.add_row(

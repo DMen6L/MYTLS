@@ -31,6 +31,7 @@ class Task():
     task_type: TaskType = TaskType.Once
     status: Status = Status.NotDone
     due_date: Optional[datetime] = None
+    streak: int = 0
 
     def __post_init__(self):
         if isinstance(self.task_type, str):
@@ -47,7 +48,8 @@ class Task():
             self.task_type.value,
             self.task_details,
             self.status.value,
-            self.due_date.strftime("%Y-%m-%d %H:%M") if self.due_date else ""
+            self.due_date.strftime("%Y-%m-%d %H:%M") if self.due_date else "",
+            str(self.streak)
         ]
 
     def get_sql_values(self) -> list:
@@ -57,7 +59,8 @@ class Task():
             self.task_details,
             self.task_type.value,
             self.status.value,
-            self.due_date
+            self.due_date,
+            self.streak
         ]
 
 class TasksManager():
@@ -74,8 +77,8 @@ class TasksManager():
         """
         self.cur.execute(
             """
-            INSERT INTO tasks (task_name, task_details, task_type, status, due_date)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO tasks (task_name, task_details, task_type, status, due_date, streak)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
             tuple(task.get_sql_values()[1:])
         )
@@ -97,7 +100,7 @@ class TasksManager():
         Update a task in the database.
         """
         self.cur.execute(
-            "UPDATE tasks SET task_name = %s, task_details = %s, task_type = %s, status = %s, due_date = %s WHERE id = %s",
+            "UPDATE tasks SET task_name = %s, task_details = %s, task_type = %s, status = %s, due_date = %s, streak = %s WHERE id = %s",
             (*task.get_sql_values()[1:], task.id)
         )
         self.conn.commit()
@@ -120,8 +123,8 @@ class TasksManager():
         """
         Delete a task from the database.
         """
-        if del_task.task_type == TaskType.Daily:
-            return False
+        # if del_task.task_type == TaskType.Daily:
+        #     return False
 
         self.cur.execute(
             """

@@ -40,7 +40,7 @@ tasks_manager = TasksManager()
 
 def parse_flags(comps: List[str]) -> Dict[str, str]:
     """Parse flag-based input like: -n Task name -d Details -t Once -s Not Done"""
-    flags = {"-n": "task_name", "-d": "task_details", "-t": "task_type", "-s": "status", "-due": "due_date"}
+    flags = {"-n": "task_name", "-d": "task_details", "-t": "task_type", "-s": "status", "-due": "due_date", "-str": "streak"}
     result = {}
     current_flag = None
     current_value = []
@@ -63,9 +63,25 @@ def tui_input(app: AppState):
     """
     Handle user input in the TUI.
     """
+    command_history = []
+    curr_history_idx = 0
 
     while app.running:
         k = readchar.readkey()
+
+        if k == key.UP:
+            if curr_history_idx > 0:
+                curr_history_idx -= 1
+                app.input_text = command_history[curr_history_idx]
+            continue
+        if k == key.DOWN:
+            if curr_history_idx < len(command_history) - 1:
+                curr_history_idx += 1
+                app.input_text = command_history[curr_history_idx]
+            else:
+                app.input_text = ""
+                curr_history_idx += 1
+            continue
 
         # Check for commands
         if k == key.ENTER:
@@ -96,14 +112,19 @@ def tui_input(app: AppState):
                 if not validate_enums(fields):
                     app.input_text = ""
                     continue
+                
                 new_task = Task(
-                    id=len(app.curr_tasks)+1,
+                    id=len(app.curr_tasks)+1, # TODO: Need to fix this
                     task_name=fields.get("task_name", "Untitled"),
                     task_details=fields.get("task_details", "None"),
                     task_type=TaskType(fields.get("task_type", "Once")),
                     status=Status(fields.get("status", "Not Done")),
                     due_date=parse_due_date(fields["due_date"]) if "due_date" in fields else None,
+                    streak=int(fields.get("streak")) if "streak" in fields else None
                 )
+
+                if new_task.task_type == TaskType.Daily and new_task.streak is None:
+                    new_task.streak = 0
 
                 tasks_manager.add(new_task)
                 app.curr_tasks.append(new_task)
@@ -141,6 +162,8 @@ def tui_input(app: AppState):
                     existing.status = Status(fields["status"])
                 if "due_date" in fields:
                     existing.due_date = parse_due_date(fields["due_date"])
+                if "streak" in fields:
+                    existing.streak = int(fields["streak"])
                 
                 tasks_manager.update(existing)
                 
@@ -148,6 +171,10 @@ def tui_input(app: AppState):
                     if t.id == task_id:
                         app.curr_tasks[i] = existing
                         break
+
+            if app.input_text != "":
+                command_history.append(app.input_text)
+                curr_history_idx = len(command_history)
             
             app.input_text = ""
 
