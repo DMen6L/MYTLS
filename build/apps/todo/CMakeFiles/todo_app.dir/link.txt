@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/todo_app.dir/main.cpp.o -o todo_app  ../../external/ftxui/libftxui-screen.a ../../external/ftxui/libftxui-dom.a ../../external/ftxui/libftxui-component.a ../../external/ftxui/libftxui-dom.a ../../external/ftxui/libftxui-screen.a 
