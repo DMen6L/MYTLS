@@ -1,4 +1,5 @@
 #include "apps/todo/todo_app.hpp"
+#include "extras/input_handler/input_handler.hpp"
 
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
@@ -13,7 +14,7 @@ int main(int argc, char *argv[]) {
   int selected = 0;
   View current = View::Menu;
 
-  auto screen = ftxui::ScreenInteractive::TerminalOutput();
+  auto screen = ftxui::ScreenInteractive::Fullscreen();
 
   auto menu = ftxui::Menu(&entries, &selected);
 
@@ -29,11 +30,14 @@ int main(int argc, char *argv[]) {
     return false;
   });
 
-  auto menu_renderer = ftxui::Renderer(launcher, [&] {
+  InputHandlerState input_state;
+  auto handler = MakeInputHandler(input_state, launcher);
+
+  auto menu_renderer = ftxui::Renderer(handler, [&] {
     return ftxui::vbox({
                ftxui::text("MyTLS - Tools") | ftxui::bold | ftxui::center,
                ftxui::separator(),
-               launcher->Render(),
+               handler->Render() | ftxui::flex,
            }) |
            ftxui::border;
   });

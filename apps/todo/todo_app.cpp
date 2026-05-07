@@ -5,7 +5,10 @@
 
 using namespace ftxui;
 
+// Todo app builder definitions
+// TODO: Redefine the builder for todo app, enhance
 Component MakeToDoApp(ToDoState &state) {
+  // Input for the new task
   auto input = Input(&state.input, "New Task");
 
   auto add_button = Button("Add", [&] {
