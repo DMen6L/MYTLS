@@ -1,5 +1,7 @@
 build/
 
 .clang-format
+.env
+
 CLAUDE.md
-FTXUI_CHEATSHEET.md
+compile_commands.json
