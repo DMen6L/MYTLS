@@ -1,6 +1,7 @@
 #include "todo.hpp"
 #include "db.hpp"
-#include "task_repository.hpp"
+#include "task.hpp"
+#include "transactor.hpp"
 
 #include <iostream>
 #include <pqxx/pqxx>
@@ -12,11 +13,9 @@ bool add_task(todo_state &state, const std::string &new_task) {
 }
 
 void todo_render(todo_state &state) {
-  pqxx::connection conn = db_init_conn();
+  std::string conn_str = db_init_conn();
+  Transactor db_trans(conn_str);
 
-  if (!conn.is_open())
-    throw std::runtime_error("Failed to connect");
-
-  TaskRepository task_repo(conn);
-  task_repo.init_table();
+  db_trans.test_conn();
+  db_trans.init_table<Task>();
 }
