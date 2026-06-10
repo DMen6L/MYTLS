@@ -36,6 +36,9 @@ std::string to_sql(const SqlType &type) {
 
   case SqlType::Timestamp:
     return "TIMESTAMP";
+
+  case SqlType::Timestamptz:
+    return "TIMESTAMPTZ";
   }
 
   throw std::runtime_error("no such sql type!");
@@ -50,7 +53,13 @@ std::string to_sql(const Column &col) {
     ss << '(' << *col.length << ')';
 
   if (col.is_primary_key)
-    ss << " PRIMARY KEY ";
+    ss << " PRIMARY KEY";
+
+  if (!col.nullable)
+    ss << " NOT NULL";
+
+  if (col.server_default)
+    ss << " DEFAULT " << *col.server_default;
 
   return ss.str();
 }

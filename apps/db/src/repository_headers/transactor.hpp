@@ -49,16 +49,21 @@ public:
     int m = vals.size();
 
     std::stringstream ss;
+    bool first_insert = false;
 
     ss << "INSERT INTO " << T::tablename << " (";
 
     for (size_t i = 0; i < n; i++) {
       if (!cols[i].insertable)
         continue;
-      ss << cols[i].name;
 
-      if (i + 1 < n)
+      if (i > 0 && first_insert)
         ss << ", ";
+
+      if (!first_insert)
+        first_insert = true;
+
+      ss << cols[i].name;
     }
 
     ss << ") VALUES (";

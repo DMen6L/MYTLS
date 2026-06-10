@@ -11,7 +11,8 @@ enum class SqlType {
   Varchar,
   Boolean,
   Float,
-  Timestamp
+  Timestamp,
+  Timestamptz
 };
 
 struct Column {
@@ -21,7 +22,10 @@ struct Column {
 
   bool is_primary_key = false;
   bool auto_increment = false;
+  bool nullable = true;
   bool insertable = true;
+  bool is_foreign_key = false;
+  std::optional<std::string> server_default = std::nullopt;
 
   bool is_valid() const;
 };
