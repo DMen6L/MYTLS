@@ -4,7 +4,6 @@
 #include "db.hpp"
 #include "postgrsql.hpp"
 
-#include <iostream>
 #include <sstream>
 #include <string>
 
@@ -78,9 +77,20 @@ public:
     ss << ");";
 
     pqxx::work tx(conn_);
-    std::cout << ss.str();
     tx.exec(ss.str());
     tx.commit();
+  }
+
+  template <typename Table> pqxx::result select_all() {
+    std::stringstream ss;
+
+    ss << "SELECT * FROM " << Table::tablename << ';';
+
+    pqxx::work tx(conn_);
+    pqxx::result res = tx.exec(ss.str());
+    tx.commit();
+
+    return res;
   }
 };
 

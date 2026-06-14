@@ -6,6 +6,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(apps/todo)
 add_subdirectory(apps/db)
+add_subdirectory(external/FTXUI)
 
 add_executable(mytls main.cpp)
 
@@ -13,4 +14,7 @@ target_link_libraries(mytls
   PRIVATE 
     todo
     db
+    ftxui::screen
+    ftxui::dom
+    ftxui::component
 )

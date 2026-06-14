@@ -22,6 +22,7 @@ struct Column {
 
   bool is_primary_key = false;
   bool auto_increment = false;
+  bool unique = false;
   bool nullable = true;
   bool insertable = true;
   bool is_foreign_key = false;

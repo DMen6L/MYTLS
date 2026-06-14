@@ -1,26 +1,39 @@
+#include "db.hpp"
 #include "todo.hpp"
-#include <iostream>
+#include "transactor.hpp"
+
+#include "ftxui/component/app.hpp"
+
+#include <ftxui/component/component.hpp>
+#include <ftxui/component/component_options.hpp>
+#include <vector>
 
 int main() {
-  int choice = -1;
-  todo_state todo;
+  using namespace ftxui;
 
-  while (true) {
-    std::system("clear");
+  std::string conn_str = db_init_conn();
+  Transactor trans(conn_str);
 
-    std::cout << "Please choose what operation to do:\n";
-    std::cout << "0. todo list\n";
-    std::cout << "current choice: ";
+  auto screen = App::TerminalOutput();
 
-    std::cin >> choice;
+  std::vector<std::string> entries = {"TODO"};
+  int selected = 0;
 
-    if (choice == -1) {
-      std::cout << "Ending program!\n";
-      return 1;
+  Component menu = Menu(&entries, &selected);
+  Component todo = todo_render(trans);
+
+  int page = 0;
+  menu |= CatchEvent([&](Event event) {
+    if (event == Event::Return) {
+      page = 1;
+      return true;
     }
-    if (choice == 0)
-      todo_render(todo);
-  }
+    return false;
+  });
+
+  auto container = Container::Tab({menu, todo}, &page);
+
+  screen.Loop(container);
 
   return 0;
 }

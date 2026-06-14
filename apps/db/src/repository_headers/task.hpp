@@ -20,7 +20,11 @@ struct TaskTable {
             Column{.name = "done",
                    .type = SqlType::Boolean,
                    .server_default = "FALSE"},
-            Column{.name = "deadline", .type = SqlType::Timestamptz}};
+            Column{.name = "deadline", .type = SqlType::Timestamptz},
+            Column{.name = "type",
+                   .type = SqlType::Varchar,
+                   .length = 100,
+                   .server_default = "'ONCE'"}};
   };
 };
 
@@ -29,10 +33,11 @@ struct Task : TaskTable {
   std::string name;
   bool done;
   std::optional<std::string> deadline;
+  std::string type;
 
   std::vector<std::string> values() const {
     return {std::to_string(id), "'" + name + "'", done ? "TRUE" : "FALSE",
-            deadline ? "'" + *deadline + "'" : "NULL"};
+            deadline ? "'" + *deadline + "'" : "NULL", "'" + type + "'"};
   }
 };
 
@@ -40,10 +45,11 @@ struct NewTask : TaskTable {
   std::string name;
   bool done = false;
   std::optional<std::string> deadline = std::nullopt;
+  std::string type;
 
   std::vector<std::string> values() const {
     return {"'" + name + "'", done ? "TRUE" : "FALSE",
-            deadline ? "'" + *deadline + "'" : "NULL"};
+            deadline ? "'" + *deadline + "'" : "NULL", "'" + type + "'"};
   }
 };
 

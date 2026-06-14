@@ -1,51 +1,52 @@
 #include "todo.hpp"
-#include "db.hpp"
 #include "task.hpp"
 #include "transactor.hpp"
 
-#include <cstdlib>
-#include <ios>
-#include <iostream>
-#include <limits>
+#include <ftxui/component/app.hpp>
+#include <ftxui/component/component.hpp>
+#include <ftxui/dom/elements.hpp>
+#include <optional>
 #include <pqxx/pqxx>
-#include <string>
+#include <sstream>
+#include <utility>
+#include <vector>
 
-void todo_render(todo_state &state) {
-  std::string conn_str = db_init_conn();
-  Transactor db_trans(conn_str);
+ftxui::Component todo_render(Transactor &trans) {
+  TodoState state(trans);
+  state.db_trans.init_table<TaskTable>();
+  state.db_trans.insert<NewTask>(NewTask{
+      .name = "new task", .deadline = "2026-12-12 00:00:00", .type = "ONCE"});
+  pqxx::result res = state.db_trans.select_all<Task>();
 
-  db_trans.test_conn();
-  db_trans.init_table<TaskTable>();
+  std::vector<std::string> tasks;
 
-  int option = -1;
+  for (const auto &row : res) {
+    int id = row["id"].as<int>();
+    std::string name = row["name"].as<std::string>();
+    bool done = row["done"].as<bool>();
+    std::optional<std::string> deadline;
+    if (!row["deadline"].is_null())
+      deadline = row["deadline"].as<std::string>();
+    std::string type = row["type"].as<std::string>();
 
-  while (true) {
-    std::system("clear");
+    std::stringstream ss;
 
-    std::cout << "Welcome to todo!\n";
-    std::cout << "Choose action\n";
-    std::cout << "0. add task\n";
+    ss << id << ' ' << name << ' ' << done << ' ';
+    if (deadline)
+      ss << *deadline << ' ';
 
-    std::cin >> option;
-    // ignore tailing endline
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    ss << type << '\n';
 
-    if (option == -1)
-      break;
-
-    std::system("clear");
-    if (option == 0) {
-      std::string new_task_name;
-      std::cout << "Name of new task: ";
-      std::getline(std::cin, new_task_name);
-
-      std::system("clear");
-      std::string deadline_input;
-      std::cout << "deadline of the task(2026-12-31 00:00:00): ";
-      std::getline(std::cin, deadline_input);
-
-      db_trans.insert<NewTask>(
-          NewTask{.name = new_task_name, .deadline = deadline_input});
-    }
+    tasks.push_back(ss.str());
   }
+
+  return ftxui::Renderer([tasks] {
+    ftxui::Elements elements;
+
+    for (const auto &task : tasks) {
+      elements.push_back(ftxui::text(task));
+    }
+
+    return ftxui::vbox(std::move(elements));
+  });
 }
