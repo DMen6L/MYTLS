@@ -7,11 +7,13 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
+#include <ftxui/dom/elements.hpp>
 #include <vector>
 
 int main() {
   using namespace ftxui;
 
+  // Basic configurations
   std::string conn_str = db_init_conn();
   Transactor trans(conn_str);
   TodoState todo_state(trans);
@@ -21,27 +23,29 @@ int main() {
   std::vector<std::string> entries = {"TODO"};
   int selected = 0;
 
-  Component menu = Menu(&entries, &selected);
-  Component todo = todo_render(todo_state);
+  auto menu = Menu(&entries, &selected);
+  auto task_list = MakeTaskList(todo_state);
+  auto task_form = MakeTaskInput(todo_state);
 
   int page = 0;
-  menu |= CatchEvent([&](Event event) {
-    if (event == Event::Return) {
+
+  auto container = Container::Tab({menu, task_list, task_form}, &page);
+  container |= CatchEvent([&](Event event) {
+    if (page == 0 && event == Event::Return) {
       page = 1;
       return true;
     }
-    return false;
-  });
-
-  todo |= CatchEvent([&](Event event) {
-    if (event == Event::Escape) {
-      page = 0;
+    if (page == 1 && event == Event::Character('a')) {
+      page = 2;
       return true;
     }
+    if (page > 0 && event == Event::Escape) {
+      page--;
+      return true;
+    }
+
     return false;
   });
-
-  auto container = Container::Tab({menu, todo}, &page);
 
   screen.Loop(container);
 

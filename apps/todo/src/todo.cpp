@@ -1,10 +1,14 @@
 #include "todo.hpp"
+#include "db.hpp"
 #include "task.hpp"
 #include "transactor.hpp"
 
+#include <fcntl.h>
 #include <ftxui/component/app.hpp>
 #include <ftxui/component/component.hpp>
+#include <ftxui/component/event.hpp>
 #include <ftxui/dom/elements.hpp>
+#include <iostream>
 #include <optional>
 #include <pqxx/pqxx>
 #include <sstream>
@@ -34,12 +38,8 @@ ftxui::Component MakeTaskInput(TodoState &state) {
   return container;
 }
 
-ftxui::Component todo_render(TodoState &state) {
-  state.db_trans.init_table<TaskTable>();
-
-  auto form = MakeTaskInput(state);
-
-  auto list = ftxui::Renderer([&] {
+ftxui::Component MakeTaskList(TodoState &state) {
+  return ftxui::Renderer([&] {
     pqxx::result res = state.db_trans.select_all<TaskTable>();
 
     ftxui::Elements elements;
@@ -60,6 +60,4 @@ ftxui::Component todo_render(TodoState &state) {
 
     return ftxui::vbox(std::move(elements));
   });
-
-  return ftxui::Container::Vertical({list, form});
 }

@@ -13,9 +13,12 @@ struct TodoState {
   std::vector<std::string> tasks;
   std::string deadline_text;
 
+  int show_form = 0;
+
   TodoState(Transactor &trans) : db_trans(trans) {}
 };
 
-ftxui::Component todo_render(TodoState &state);
+ftxui::Component MakeTaskInput(TodoState &state);
+ftxui::Component MakeTaskList(TodoState &state);
 
 #endif
