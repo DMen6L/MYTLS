@@ -4,11 +4,11 @@ add_library(todo
 
 target_link_libraries(todo
   PRIVATE db
-)
-
-target_include_directories(todo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(todo PRIVATE
+  main_functional
+  app_state
   ftxui::screen
   ftxui::dom
   ftxui::component
 )
+
+target_include_directories(todo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

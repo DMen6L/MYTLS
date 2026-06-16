@@ -52,6 +52,9 @@ std::string to_sql(const Column &col) {
   if (col.is_valid() && col.length)
     ss << '(' << *col.length << ')';
 
+  if (col.unique)
+    ss << " UNIQUE";
+
   if (col.is_primary_key)
     ss << " PRIMARY KEY";
 

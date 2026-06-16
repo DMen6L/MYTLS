@@ -1,24 +1,11 @@
 #ifndef TODO
 #define TODO
 
-#include "task.hpp"
-#include "transactor.hpp"
+#include "AppState.hpp"
+
 #include <ftxui/component/app.hpp>
-#include <string>
-#include <vector>
 
-struct TodoState {
-  Transactor &db_trans;
-  NewTask new_task;
-  std::vector<std::string> tasks;
-  std::string deadline_text;
-
-  int show_form = 0;
-
-  TodoState(Transactor &trans) : db_trans(trans) {}
-};
-
-ftxui::Component MakeTaskInput(TodoState &state);
-ftxui::Component MakeTaskList(TodoState &state);
+ftxui::Component MakeTodoList(AppState &app_state);
+ftxui::Component MakeTodoAdd(AppState &app_state);
 
 #endif

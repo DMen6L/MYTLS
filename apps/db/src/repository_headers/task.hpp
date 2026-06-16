@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "db.hpp"
 #include "postgrsql.hpp"
 
 struct TaskTable {
@@ -52,5 +53,7 @@ struct NewTask : TaskTable {
             deadline ? "'" + *deadline + "'" : "NULL", "'" + type + "'"};
   }
 };
+
+Task task_from_row(const pqxx::result::reference &row);
 
 #endif // !TASK

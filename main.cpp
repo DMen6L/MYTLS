@@ -1,9 +1,11 @@
+#include "AppState.hpp"
 #include "db.hpp"
+#include "events.hpp"
+#include "task.hpp"
 #include "todo.hpp"
 #include "transactor.hpp"
 
-#include "ftxui/component/app.hpp"
-
+#include <ftxui/component/app.hpp>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
@@ -12,40 +14,24 @@
 
 int main() {
   using namespace ftxui;
+  std::string conn_str = db_init_conn(); // Connection string to database
+  Transactor trans(conn_str);            // Transactor for database actions
 
-  // Basic configurations
-  std::string conn_str = db_init_conn();
-  Transactor trans(conn_str);
-  TodoState todo_state(trans);
-
-  auto screen = App::TerminalOutput();
+  AppState app_state(trans); // State of the application
+  app_state.initiation_routine();
 
   std::vector<std::string> entries = {"TODO"};
-  int selected = 0;
+  int menu_selected = 0;
 
-  auto menu = Menu(&entries, &selected);
-  auto task_list = MakeTaskList(todo_state);
-  auto task_form = MakeTaskInput(todo_state);
+  auto main_menu = Menu(&entries, &menu_selected);
+  auto todo_list = MakeTodoList(app_state);
+  auto todo_add = MakeTodoAdd(app_state);
 
-  int page = 0;
+  auto container =
+      Container::Tab({main_menu, todo_list, todo_add}, &app_state.current_page);
+  container |= CatchEvent(MakeInputHandler(app_state));
 
-  auto container = Container::Tab({menu, task_list, task_form}, &page);
-  container |= CatchEvent([&](Event event) {
-    if (page == 0 && event == Event::Return) {
-      page = 1;
-      return true;
-    }
-    if (page == 1 && event == Event::Character('a')) {
-      page = 2;
-      return true;
-    }
-    if (page > 0 && event == Event::Escape) {
-      page--;
-      return true;
-    }
-
-    return false;
-  });
+  auto screen = App::TerminalOutput();
 
   screen.Loop(container);
 

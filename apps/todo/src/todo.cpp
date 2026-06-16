@@ -1,63 +1,68 @@
 #include "todo.hpp"
 #include "db.hpp"
 #include "task.hpp"
-#include "transactor.hpp"
 
 #include <fcntl.h>
 #include <ftxui/component/app.hpp>
 #include <ftxui/component/component.hpp>
+#include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/dom/elements.hpp>
-#include <iostream>
+#include <ftxui/screen/color.hpp>
 #include <optional>
 #include <pqxx/pqxx>
 #include <sstream>
-#include <utility>
 
-ftxui::Component MakeTaskInput(TodoState &state) {
-  auto task_input = ftxui::Input(&state.new_task.name, "New Task");
-  auto done_checkbox = ftxui::Checkbox("Done", &state.new_task.done);
-  auto type_input = ftxui::Input(&state.new_task.type, "Type");
-
-  auto deadline_input =
-      ftxui::Input(&state.deadline_text, "YYYY-MM-DD HH:MM:SS");
-
-  auto submit = ftxui::Button("Submit", [&] {
-    if (state.deadline_text.empty())
-      state.new_task.deadline = std::nullopt;
-    else
-      state.new_task.deadline = state.deadline_text;
-
-    state.db_trans.insert<NewTask>(state.new_task);
-    state.new_task = NewTask{};
-    state.deadline_text.clear();
-  });
-
-  auto container = ftxui::Container::Vertical(
-      {task_input, type_input, deadline_input, done_checkbox, submit});
-  return container;
-}
-
-ftxui::Component MakeTaskList(TodoState &state) {
+ftxui::Component MakeTodoList(AppState &app_state) {
   return ftxui::Renderer([&] {
-    pqxx::result res = state.db_trans.select_all<TaskTable>();
+    ftxui::Elements task_list;
+    int count = 0;
 
-    ftxui::Elements elements;
-
-    for (const auto &row : res) {
+    for (const Task &task : app_state.tasks) {
       std::stringstream ss;
 
-      ss << row["id"].as<int>() << ' ' << row["name"].as<std::string>() << ' '
-         << row["done"].as<bool>() << ' ';
+      ss << count + 1 << ' ' << task.name << ' ' << task.type << ' ';
 
-      if (!row["deadline"].is_null())
-        ss << row["deadline"].as<std::string>() << ' ';
+      if (task.deadline)
+        ss << *task.deadline << ' ';
 
-      ss << row["type"].as<std::string>();
+      ss << task.done;
 
-      elements.push_back(ftxui::text(ss.str()));
+      auto task_text = ftxui::text(ss.str());
+
+      if (app_state.current_todo == count) {
+        task_text |= ftxui::color(ftxui::Color::Black);
+        task_text |= ftxui::bgcolor(ftxui::Color::White);
+      }
+
+      task_list.push_back(task_text);
+      count++;
     }
 
-    return ftxui::vbox(std::move(elements));
+    return ftxui::vbox(std::move(task_list));
   });
+}
+
+ftxui::Component MakeTodoAdd(AppState &app_state) {
+
+  auto name_field = ftxui::Input(&app_state.new_task.name, "Task Name");
+  auto type_field = ftxui::Input(&app_state.new_task.type, "Task Type");
+  auto deadline_field =
+      ftxui::Input(&app_state.temp_deadline, "YYYY-MM-DD HH:MM:SS");
+  auto done_checkbox = ftxui::Checkbox("Done", &app_state.new_task.done);
+
+  if (app_state.temp_deadline.empty())
+    app_state.new_task.deadline = std::nullopt;
+  else
+    app_state.new_task.deadline = app_state.temp_deadline;
+
+  auto submit = ftxui::Button("Submit", [&] {
+    pqxx::result res = app_state.trans.insert<NewTask>(app_state.new_task);
+    app_state.tasks.push_back(task_from_row(res[0]));
+    app_state.new_task = NewTask{};
+    app_state.NavigationBack();
+  });
+
+  return ftxui::Container::Vertical(
+      {name_field, type_field, deadline_field, done_checkbox, submit});
 }

@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 
+// TODO: finish all endpoints
 class Transactor {
   pqxx::connection conn_;
 
@@ -41,7 +42,33 @@ public:
     tx.commit();
   };
 
-  template <typename T> void insert(const T &obj) {
+  template <typename Table> pqxx::result select_all() {
+    std::stringstream ss;
+
+    ss << "SELECT * FROM " << Table::tablename << ';';
+
+    pqxx::work tx(conn_);
+    pqxx::result res = tx.exec(ss.str());
+    tx.commit();
+
+    return res;
+  }
+
+  template <typename Table>
+  pqxx::result select_by_name(const std::string &name, const Column &col) {
+    std::stringstream ss;
+
+    ss << "SELECT * FROM " << Table::tablename << " WHERE " << col.name << " = "
+       << name;
+
+    pqxx::work tx(conn_);
+    pqxx::result res = tx.exec(ss.str());
+    tx.commit();
+
+    return res;
+  }
+
+  template <typename T> pqxx::result insert(const T &obj) {
     auto cols = T::columns();
     auto vals = obj.values();
     int n = cols.size();
@@ -74,23 +101,23 @@ public:
         ss << ", ";
     }
 
-    ss << ");";
-
-    pqxx::work tx(conn_);
-    tx.exec(ss.str());
-    tx.commit();
-  }
-
-  template <typename Table> pqxx::result select_all() {
-    std::stringstream ss;
-
-    ss << "SELECT * FROM " << Table::tablename << ';';
+    ss << ") RETURNING *;";
 
     pqxx::work tx(conn_);
     pqxx::result res = tx.exec(ss.str());
     tx.commit();
 
     return res;
+  }
+
+  template <typename T> void delete_by_id(int id) {
+    std::stringstream ss;
+
+    ss << "DELETE FROM " << T::tablename << " WHERE id = " << id;
+
+    pqxx::work tx(conn_);
+    tx.exec(ss.str());
+    tx.commit();
   }
 };
 

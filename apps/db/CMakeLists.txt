@@ -2,6 +2,7 @@ add_library(db
   src/database/db.cpp
   src/extra/env.cpp
   src/extra/postgrsql.cpp
+  src/repository_headers/task.cpp
 )
 
 find_package(libpqxx REQUIRED)
