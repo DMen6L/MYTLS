@@ -25,7 +25,7 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
     case Page::TodoList:
       if (event == ftxui::Event::Character('j') ||
           event == ftxui::Event::ArrowDown) {
-        if (app_state.current_todo >= app_state.total_todos - 1)
+        if (app_state.current_todo >= app_state.tasks.size() - 1)
           return false;
         app_state.current_todo++;
         return true;

@@ -16,6 +16,8 @@
 ftxui::Component MakeTodoList(AppState &app_state) {
   return ftxui::Renderer([&] {
     ftxui::Elements task_list;
+    task_list.push_back(ftxui::text("TODO List"));
+    task_list.push_back(ftxui::separator());
     int count = 0;
 
     for (const Task &task : app_state.tasks) {

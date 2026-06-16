@@ -18,7 +18,6 @@ struct AppState {
   std::vector<Task> tasks; // Saving tasks for transactions with them
   // Todo list navigation
   int current_todo = 0;
-  size_t total_todos = 0;
 
   NewTask new_task;
   std::string temp_deadline;
