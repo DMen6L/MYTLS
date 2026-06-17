@@ -3,6 +3,7 @@
 
 #include "AppState.hpp"
 #include "events.hpp"
+#include "task.hpp"
 
 // TODO: main menu selections
 std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
@@ -48,6 +49,13 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
         std::erase_if(app_state.tasks, [&](const Task &task) {
           return task.id == app_state.GetCurrentTask().id;
         });
+      }
+      if (event == ftxui::Event::CtrlF) {
+        app_state.trans.update<UpdateTask>(
+            UpdateTask{.id = app_state.GetCurrentTask().id,
+                       .done = !app_state.GetCurrentTask().done});
+        app_state.tasks[app_state.current_todo].done =
+            !app_state.GetCurrentTask().done;
       }
       break;
 

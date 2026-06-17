@@ -4,6 +4,7 @@
 #include "db.hpp"
 #include "postgrsql.hpp"
 
+#include <iostream>
 #include <sstream>
 #include <string>
 
@@ -59,7 +60,7 @@ public:
     std::stringstream ss;
 
     ss << "SELECT * FROM " << Table::tablename << " WHERE " << col.name << " = "
-       << name;
+       << name << ';';
 
     pqxx::work tx(conn_);
     pqxx::result res = tx.exec(ss.str());
@@ -113,7 +114,36 @@ public:
   template <typename T> void delete_by_id(int id) {
     std::stringstream ss;
 
-    ss << "DELETE FROM " << T::tablename << " WHERE id = " << id;
+    ss << "DELETE FROM " << T::tablename << " WHERE id = " << id << ';';
+
+    pqxx::work tx(conn_);
+    tx.exec(ss.str());
+    tx.commit();
+  }
+
+  template <typename T> void update(const T &obj) {
+    auto cols = T::columns();
+    auto vals = obj.values();
+    int n = cols.size();
+    int m = vals.size();
+
+    std::stringstream ss;
+    bool first_update = true;
+
+    ss << "UPDATE " << T::tablename << " SET ";
+
+    for (size_t i = 0; i < n; i++) {
+      if (!cols[i].insertable || vals[i].empty())
+        continue;
+
+      if (!first_update)
+        ss << ", ";
+
+      ss << cols[i].name << " = " << vals[i];
+      first_update = false;
+    }
+
+    ss << " WHERE id = " << vals[0] << ';';
 
     pqxx::work tx(conn_);
     tx.exec(ss.str());

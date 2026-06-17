@@ -21,6 +21,8 @@ struct AppState {
 
   NewTask new_task;
   std::string temp_deadline;
+  std::vector<std::string> type_entries;
+  int selected_type = 0;
 
   explicit AppState(Transactor &db_trans) : trans(db_trans) {
     navigation_stack.push(Page::MainMenu);
@@ -30,10 +32,13 @@ struct AppState {
   void initiation_routine() {
     this->trans.init_table<TaskTable>();
     pqxx::result res = this->trans.select_all<TaskTable>();
-    this->total_todos = res.size();
 
     for (const auto &row : res) {
       this->tasks.push_back(task_from_row(row));
+    }
+
+    for (const TaskType &type : AllTaskTypes) {
+      type_entries.push_back(task_type_to_string(type));
     }
   }
 
@@ -47,6 +52,21 @@ struct AppState {
   }
 
   Task GetCurrentTask() { return this->tasks[this->current_todo]; }
+
+  void ReadTempValues() {
+    if (this->temp_deadline.empty())
+      this->new_task.deadline = std::nullopt;
+    else
+      this->new_task.deadline = this->temp_deadline;
+
+    this->new_task.type = AllTaskTypes[this->selected_type];
+  }
+
+  void ClearTempValues() {
+    this->new_task = NewTask{};
+    this->temp_deadline.clear();
+    this->selected_type = 0;
+  }
 };
 
 #endif // !APPSTATE

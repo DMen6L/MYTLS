@@ -1,6 +1,7 @@
 #include "AppState.hpp"
 #include "db.hpp"
 #include "events.hpp"
+#include "main_render.hpp"
 #include "task.hpp"
 #include "todo.hpp"
 #include "transactor.hpp"
@@ -20,10 +21,10 @@ int main() {
   AppState app_state(trans); // State of the application
   app_state.initiation_routine();
 
-  std::vector<std::string> entries = {"TODO"};
+  std::vector<std::string> entries = {"TODO", "My data"};
   int menu_selected = 0;
 
-  auto main_menu = Menu(&entries, &menu_selected);
+  auto main_menu = Menu(&entries, &menu_selected, MainMenuStyle());
   auto todo_list = MakeTodoList(app_state);
   auto todo_add = MakeTodoAdd(app_state);
 

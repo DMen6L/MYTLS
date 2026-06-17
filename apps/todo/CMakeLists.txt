@@ -6,6 +6,7 @@ target_link_libraries(todo
   PRIVATE db
   main_functional
   app_state
+  render_elements
   ftxui::screen
   ftxui::dom
   ftxui::component
