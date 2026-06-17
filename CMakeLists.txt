@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(apps/todo)
+add_subdirectory(apps/my_data)
 add_subdirectory(apps/db)
 add_subdirectory(external/FTXUI)
 add_subdirectory(main_functional)
@@ -16,6 +17,7 @@ add_executable(mytls main.cpp)
 target_link_libraries(mytls
   PRIVATE 
     todo
+    my_data
     db
     main_functional
     app_state

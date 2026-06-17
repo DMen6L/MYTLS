@@ -5,12 +5,19 @@
 #include "transactor.hpp"
 #include <ftxui/component/app.hpp>
 #include <stack>
+#include <string>
+#include <vector>
 
-enum class Page { MainMenu = 0, TodoList = 1, TodoAdd = 2 };
+enum class Page { MainMenu = 0, TodoList = 1, TodoAdd = 2, MyData = 3 };
+
+std::string page_to_string(const Page &page);
+Page string_to_page(const std::string &page_str);
 
 struct AppState {
   // GLobal
   Transactor &trans;
+  std::vector<std::string> main_menu_entries = {"TodoList", "MyData"};
+  int man_menu_selected = 0;
   int current_page = 0;
   std::stack<Page> navigation_stack;
 
@@ -44,6 +51,11 @@ struct AppState {
 
   void UpdateCurrentPage() {
     this->current_page = static_cast<int>(this->navigation_stack.top());
+  }
+
+  void NavigationForward(Page &chosen_page) {
+    this->navigation_stack.push(chosen_page);
+    this->UpdateCurrentPage();
   }
 
   void NavigationBack() {

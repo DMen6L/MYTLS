@@ -18,8 +18,9 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
     case Page::MainMenu:
       if (event == ftxui::Event::Return) {
         // Add new top page and update current page
-        app_state.navigation_stack.push(Page::TodoList);
-        app_state.UpdateCurrentPage();
+        Page chosen_page = string_to_page(
+            app_state.main_menu_entries[app_state.man_menu_selected]);
+        app_state.NavigationForward(chosen_page);
         return true;
       }
       break;
@@ -60,6 +61,9 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
       break;
 
     case Page::TodoAdd:
+      break;
+
+    case Page::MyData:
       break;
     }
 

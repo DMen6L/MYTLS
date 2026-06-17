@@ -2,6 +2,7 @@
 #include "db.hpp"
 #include "events.hpp"
 #include "main_render.hpp"
+#include "my_data.hpp"
 #include "task.hpp"
 #include "todo.hpp"
 #include "transactor.hpp"
@@ -21,15 +22,14 @@ int main() {
   AppState app_state(trans); // State of the application
   app_state.initiation_routine();
 
-  std::vector<std::string> entries = {"TODO", "My data"};
-  int menu_selected = 0;
-
-  auto main_menu = Menu(&entries, &menu_selected, MainMenuStyle());
+  auto main_menu = Menu(&app_state.main_menu_entries,
+                        &app_state.man_menu_selected, MainMenuStyle());
   auto todo_list = MakeTodoList(app_state);
   auto todo_add = MakeTodoAdd(app_state);
+  auto my_data = MakeMyDataBody();
 
-  auto container =
-      Container::Tab({main_menu, todo_list, todo_add}, &app_state.current_page);
+  auto container = Container::Tab({main_menu, todo_list, todo_add, my_data},
+                                  &app_state.current_page);
   container |= CatchEvent(MakeInputHandler(app_state));
 
   auto screen = App::TerminalOutput();
