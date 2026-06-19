@@ -12,7 +12,6 @@
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/dom/elements.hpp>
-#include <vector>
 
 int main() {
   using namespace ftxui;
@@ -23,7 +22,7 @@ int main() {
   app_state.initiation_routine();
 
   auto main_menu = Menu(&app_state.main_menu_entries,
-                        &app_state.man_menu_selected, MainMenuStyle());
+                        &app_state.main_menu_selected, MainMenuStyle());
   auto todo_list = MakeTodoList(app_state);
   auto todo_add = MakeTodoAdd(app_state);
   auto my_data = MakeMyDataBody();

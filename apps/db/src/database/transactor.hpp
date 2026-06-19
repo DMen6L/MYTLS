@@ -2,9 +2,7 @@
 #define TRANSACTOR
 
 #include "db.hpp"
-#include "postgrsql.hpp"
 
-#include <iostream>
 #include <sstream>
 #include <string>
 
@@ -147,6 +145,23 @@ public:
 
     pqxx::work tx(conn_);
     tx.exec(ss.str());
+    tx.commit();
+  }
+
+  void migrate(Migration &migration) {
+    pqxx::work tx(conn_);
+
+    auto res = tx.exec("SELECT 1 FROM schema_migrations WHERE version = $1",
+                       migration.version);
+
+    if (!res.empty()) {
+      tx.commit();
+      return;
+    }
+
+    tx.exec(migration.sql);
+    tx.exec("INSERT INTO schema_migrations(version) VALUES($1)",
+            migration.version);
     tx.commit();
   }
 };

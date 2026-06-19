@@ -26,3 +26,11 @@ target_link_libraries(mytls
     ftxui::dom
     ftxui::component
 )
+
+add_executable(apply_migrations
+    migrations/apply_migrations.cpp
+)
+
+target_link_libraries(apply_migrations
+    PRIVATE db
+)

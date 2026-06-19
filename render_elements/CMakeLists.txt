@@ -5,6 +5,8 @@ add_library(render_elements
 
 target_link_libraries(render_elements
   PRIVATE
+  db
+  app_state
   ftxui::screen
   ftxui::dom
   ftxui::component
