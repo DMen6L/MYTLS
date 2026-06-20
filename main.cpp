@@ -23,12 +23,15 @@ int main() {
 
   auto main_menu = Menu(&app_state.main_menu_entries,
                         &app_state.main_menu_selected, MainMenuStyle());
-  auto todo_list = MakeTodoList(app_state);
-  auto todo_add = MakeTodoAdd(app_state);
-  auto my_data = MakeMyDataBody();
-
-  auto container = Container::Tab({main_menu, todo_list, todo_add, my_data},
-                                  &app_state.current_page);
+  auto container = Container::Tab(
+      {
+          main_menu,
+          MakeTodoList(app_state),
+          MakeTodoAdd(app_state),
+          MakeTodoUpdate(app_state),
+          MakeMyDataBody(),
+      },
+      &app_state.current_page);
   container |= CatchEvent(MakeInputHandler(app_state));
 
   auto screen = App::TerminalOutput();

@@ -4,8 +4,8 @@
 #include "AppState.hpp"
 #include "events.hpp"
 #include "task.hpp"
+#include "todo.hpp"
 
-// TODO: main menu selections
 std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
   return [&](ftxui::Event event) {
     // if escape go back in the pages hierarchy
@@ -49,17 +49,58 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
         std::erase_if(app_state.tasks, [&](const Task &task) {
           return task.id == app_state.GetCurrentTask().id;
         });
+        return true;
       }
       if (event == ftxui::Event::CtrlF) {
-        app_state.trans.update<UpdateTask>(
-            UpdateTask{.id = app_state.GetCurrentTask().id,
-                       .done = !app_state.GetCurrentTask().done});
-        app_state.tasks[app_state.current_todo].done =
-            !app_state.GetCurrentTask().done;
+        Task &task = app_state.tasks[app_state.current_todo];
+        if (task.progress >= task.total) {
+          task.progress = 0;
+
+          task.done = false;
+        } else {
+          task.progress++;
+          if (task.progress == task.total)
+            task.done = true;
+        }
+        app_state.trans.update<UpdateTask>(UpdateTask{
+            .id = task.id,
+            .done = task.done,
+            .deadline = task.deadline,
+            .progress = task.progress,
+        });
+
+        return true;
+      }
+      if (event == ftxui::Event::CtrlAltF) {
+        Task &task = app_state.tasks[app_state.current_todo];
+        if (task.progress == task.total) {
+          task.progress--;
+          task.done = false;
+        }
+        if (task.progress > 0)
+          task.progress--;
+
+        app_state.trans.update<UpdateTask>(UpdateTask{
+            .id = task.id,
+            .done = task.done,
+            .deadline = task.deadline,
+            .progress = task.progress,
+        });
+
+        return true;
+      }
+      if (event == ftxui::Event::Return) {
+        app_state.UpdateEditingTask();
+        app_state.NavigationForward(Page::TodoUpdate);
+
+        return true;
       }
       break;
 
     case Page::TodoAdd:
+      break;
+
+    case Page::TodoUpdate:
       break;
 
     case Page::MyData:

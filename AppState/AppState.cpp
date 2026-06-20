@@ -8,6 +8,8 @@ std::string page_to_string(const Page &page) {
     return "TodoList";
   case Page::TodoAdd:
     return "TodoAdd";
+  case Page::TodoUpdate:
+    return "TodoUpdate";
   case Page::MyData:
     return "MyData";
   }
@@ -22,6 +24,8 @@ Page string_to_page(const std::string &page_str) {
     return Page::TodoList;
   if (page_str == "TodoAdd")
     return Page::TodoAdd;
+  if (page_str == "TodoUpdate")
+    return Page::TodoUpdate;
   if (page_str == "MyData")
     return Page::MyData;
 

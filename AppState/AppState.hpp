@@ -10,7 +10,13 @@
 #include <string>
 #include <vector>
 
-enum class Page { MainMenu = 0, TodoList = 1, TodoAdd = 2, MyData = 3 };
+enum class Page {
+  MainMenu = 0,
+  TodoList = 1,
+  TodoAdd = 2,
+  TodoUpdate = 3,
+  MyData = 4,
+};
 
 std::string page_to_string(const Page &page);
 Page string_to_page(const std::string &page_str);
@@ -36,6 +42,13 @@ struct AppState {
   std::string temp_total = "1";
   std::string temp_progress = "0";
 
+  int editing_task_idx;
+  std::string edit_name;
+  int edit_type;
+  std::string edit_deadline;
+  std::string edit_total;
+  std::string edit_progress;
+
   explicit AppState(Transactor &db_trans) : trans(db_trans) {
     navigation_stack.push(Page::MainMenu);
   }
@@ -55,7 +68,7 @@ struct AppState {
                   return true;
 
                 if (a.done != b.done)
-                  return !a.done;
+                  return a.done;
 
                 return a.id < b.id;
               });
@@ -78,7 +91,20 @@ struct AppState {
   }
 
   void UpdateCurrentPage() {
+    if (this->navigation_stack.top() == Page::TodoList) {
+      this->SortTasks();
+    }
     this->current_page = static_cast<int>(this->navigation_stack.top());
+  }
+
+  void UpdateEditingTask() {
+    Task &edit_task = this->tasks[this->current_todo];
+    this->editing_task_idx = this->current_todo;
+    this->edit_name = edit_task.name;
+    this->edit_type = 0;
+    this->edit_deadline = edit_task.deadline.to_string();
+    this->edit_total = std::to_string(edit_task.total);
+    this->edit_progress = std::to_string(edit_task.progress);
   }
 
   void NavigationForward(const Page &chosen_page) {
@@ -91,7 +117,7 @@ struct AppState {
     this->UpdateCurrentPage();
   }
 
-  Task GetCurrentTask() { return this->tasks[this->current_todo]; }
+  Task GetCurrentTask() const { return this->tasks[this->current_todo]; }
 
   void ReadTempValues() {
     this->new_task.type = AllTaskTypes[this->selected_type];
@@ -121,6 +147,17 @@ struct AppState {
       progress = 1;
     }
     this->new_task.progress = progress;
+  }
+
+  void ClearEditValues() {
+    Task &edit_task = this->tasks[this->editing_task_idx];
+    edit_task.name = this->edit_name;
+    edit_task.type = task_type_from_string(this->type_entries[this->edit_type]);
+    edit_task.deadline.set(
+        task_type_from_string(this->type_entries[this->edit_type]),
+        this->edit_deadline);
+    edit_task.total = std::stoi(this->edit_total);
+    edit_task.progress = std::stoi(this->edit_progress);
   }
 
   void ClearTempValues() {

@@ -82,7 +82,7 @@ struct TaskSchedule {
         deadline, other.deadline);
   }
 
-  void set(TaskType &type, const std::string &val) {
+  void set(const TaskType &type, const std::string &val) {
     if (val.empty())
       return;
 

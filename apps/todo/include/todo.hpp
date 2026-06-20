@@ -7,5 +7,6 @@
 
 ftxui::Component MakeTodoList(AppState &app_state);
 ftxui::Component MakeTodoAdd(AppState &app_state);
+ftxui::Component MakeTodoUpdate(AppState &app_state);
 
 #endif
