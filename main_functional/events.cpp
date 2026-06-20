@@ -53,15 +53,12 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
       }
       if (event == ftxui::Event::CtrlF) {
         Task &task = app_state.tasks[app_state.current_todo];
-        if (task.progress >= task.total) {
-          task.progress = 0;
-
-          task.done = false;
-        } else {
-          task.progress++;
-          if (task.progress == task.total)
-            task.done = true;
+        if (task.progress == task.total) {
+          return true;
         }
+        task.progress++;
+        if (task.progress == task.total)
+          task.done = true;
         app_state.trans.update<UpdateTask>(UpdateTask{
             .id = task.id,
             .done = task.done,
@@ -73,12 +70,12 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
       }
       if (event == ftxui::Event::CtrlAltF) {
         Task &task = app_state.tasks[app_state.current_todo];
+        if (task.progress == 0)
+          return true;
         if (task.progress == task.total) {
-          task.progress--;
           task.done = false;
         }
-        if (task.progress > 0)
-          task.progress--;
+        task.progress--;
 
         app_state.trans.update<UpdateTask>(UpdateTask{
             .id = task.id,
@@ -94,6 +91,9 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
         app_state.NavigationForward(Page::TodoUpdate);
 
         return true;
+      }
+      if (event == ftxui::Event::CtrlR) {
+        app_state.SaveReports();
       }
       break;
 

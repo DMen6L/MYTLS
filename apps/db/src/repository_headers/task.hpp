@@ -118,7 +118,6 @@ struct TaskSchedule {
     }
     }
   }
-  // TODO: finish to string definitions
   std::string to_string() const {
     if (!this->is_set())
       return "";
@@ -195,7 +194,7 @@ struct TaskTable {
                .type = SqlType::Integer,
                .server_default = "0"},
     };
-  };
+  }
 };
 
 struct Task : TaskTable {

@@ -1,6 +1,9 @@
 #ifndef APPSTATE
 #define APPSTATE
 
+#include "daily_reports.hpp"
+#include "daily_reports_entry.hpp"
+#include "db.hpp"
 #include "task.hpp"
 #include "transactor.hpp"
 
@@ -77,6 +80,8 @@ struct AppState {
   // Routine for initiation of all stuff
   void initiation_routine() {
     this->trans.init_table<TaskTable>();
+    this->trans.init_table<DailyReportsTable>();
+    this->trans.init_table<DailyReportsEntryTable>();
     pqxx::result res = this->trans.select_all<TaskTable>();
 
     for (const auto &row : res) {
@@ -102,6 +107,13 @@ struct AppState {
     this->editing_task_idx = this->current_todo;
     this->edit_name = edit_task.name;
     this->edit_type = 0;
+    while (this->edit_type < this->type_entries.size()) {
+      if (task_type_to_string(edit_task.type) ==
+          this->type_entries[this->edit_type])
+        break;
+
+      this->edit_type++;
+    }
     this->edit_deadline = edit_task.deadline.to_string();
     this->edit_total = std::to_string(edit_task.total);
     this->edit_progress = std::to_string(edit_task.progress);
@@ -164,6 +176,62 @@ struct AppState {
     this->new_task = NewTask{};
     this->temp_deadline.clear();
     this->selected_type = 0;
+  }
+
+  void SaveReports() {
+    std::vector<int> completed_ids;
+
+    pqxx::result res = trans.insert<NewDailyReports>(NewDailyReports{
+        .report_date = std::chrono::floor<std::chrono::days>(
+            std::chrono::system_clock::now()),
+    });
+    int report_id = res[0]["id"].as<int>();
+
+    for (Task &task : tasks) {
+      if (task.type == TaskType::ONCE || task.type == TaskType::LONGTERM ||
+          task.type == TaskType::WEEKLY || task.type == TaskType::MONTHLY) {
+        if (!task.done)
+          continue;
+      }
+      NewDailyReportsEntry entry{
+          .reports_id = report_id,
+          .task_name = task.name,
+          .progress = task.progress,
+          .total = task.total,
+          .was_completed = task.done,
+      };
+
+      trans.insert<NewDailyReportsEntry>(entry);
+
+      switch (task.type) {
+      case TaskType::ONCE:
+      case TaskType::LONGTERM:
+        if (task.done) {
+          trans.delete_by_id<Task>(task.id);
+          completed_ids.push_back(task.id);
+        }
+        break;
+
+      case TaskType::DAILY:
+        trans.update<UpdateTask>({
+            .id = task.id,
+            .done = false,
+            .progress = 0,
+        });
+
+        task.done = false;
+        task.progress = 0;
+        break;
+
+      default:
+        break;
+      }
+    }
+
+    std::erase_if(tasks, [&](const Task &task) {
+      return std::find(completed_ids.begin(), completed_ids.end(), task.id) !=
+             completed_ids.end();
+    });
   }
 };
 

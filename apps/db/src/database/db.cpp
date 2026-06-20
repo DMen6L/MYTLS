@@ -48,6 +48,9 @@ std::string to_sql(const SqlType &type) {
 
   case SqlType::Timestamptz:
     return "TIMESTAMPTZ";
+
+  case SqlType::Date:
+    return "DATE";
   }
 
   throw std::runtime_error("no such sql type!");
@@ -72,6 +75,9 @@ std::string to_sql(const Column &col) {
 
   if (col.server_default)
     ss << " DEFAULT " << *col.server_default;
+
+  if (col.foreign_key)
+    ss << " REFERENCES " << *col.foreign_key;
 
   return ss.str();
 }

@@ -1,6 +1,7 @@
 #ifndef DB
 #define DB
 
+#include <optional>
 #include <pqxx/pqxx>
 #include <string>
 
@@ -15,7 +16,8 @@ enum class SqlType {
   Boolean,
   Float,
   Timestamp,
-  Timestamptz
+  Timestamptz,
+  Date
 };
 
 struct Column {
@@ -28,7 +30,7 @@ struct Column {
   bool unique = false;
   bool nullable = true;
   bool insertable = true;
-  bool is_foreign_key = false;
+  std::optional<std::string> foreign_key = std::nullopt;
   std::optional<std::string> server_default = std::nullopt;
 
   bool is_valid() const;
