@@ -28,6 +28,9 @@ struct TaskSchedule {
   struct Once {
     std::optional<std::chrono::system_clock::time_point> tp;
   };
+  struct Longterm {
+    std::optional<std::chrono::system_clock::time_point> tp;
+  };
   struct Daily {
     std::optional<std::chrono::minutes> time;
   };
@@ -43,7 +46,8 @@ struct TaskSchedule {
     std::optional<int> day;
   };
 
-  using Deadline = std::variant<std::monostate, Once, Daily, Weekly, Monthly>;
+  using Deadline =
+      std::variant<std::monostate, Once, Longterm, Daily, Weekly, Monthly>;
   Deadline deadline = std::monostate{};
   bool is_set() const {
     return std::visit(
@@ -53,6 +57,8 @@ struct TaskSchedule {
           if constexpr (std::is_same_v<T, std::monostate>)
             return false;
           else if constexpr (std::is_same_v<T, Once>)
+            return v.tp.has_value();
+          else if constexpr (std::is_same_v<T, Longterm>)
             return v.tp.has_value();
           else if constexpr (std::is_same_v<T, Daily>)
             return v.time.has_value();
@@ -73,6 +79,8 @@ struct TaskSchedule {
           if constexpr (!std::is_same_v<A, B>) {
             return false; // should never happen
           } else if constexpr (std::is_same_v<A, Once>) {
+            return *a.tp < *b.tp;
+          } else if constexpr (std::is_same_v<A, Longterm>) {
             return *a.tp < *b.tp;
           } else if constexpr (std::is_same_v<A, Daily>) {
             return *a.time < *b.time;
@@ -119,6 +127,10 @@ struct TaskSchedule {
       break;
     }
     case TaskType::LONGTERM: {
+      std::tm tm{};
+      ss >> std::get_time(&tm, "%Y-%m-%d");
+      std::time_t t = std::mktime(&tm);
+      deadline = Longterm{std::chrono::system_clock::from_time_t(t)};
       break;
     }
     }
@@ -135,6 +147,17 @@ struct TaskSchedule {
           }
 
           else if constexpr (std::is_same_v<T, Once>) {
+            if (!v.tp.has_value())
+              return "";
+            std::time_t t = std::chrono::system_clock::to_time_t(*v.tp);
+            std::tm *tm = std::localtime(&t);
+
+            std::ostringstream ss;
+            ss << std::put_time(tm, "%Y-%m-%d");
+            return ss.str();
+          }
+
+          else if constexpr (std::is_same_v<T, Longterm>) {
             if (!v.tp.has_value())
               return "";
             std::time_t t = std::chrono::system_clock::to_time_t(*v.tp);

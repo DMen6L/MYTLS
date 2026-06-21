@@ -152,29 +152,38 @@ ftxui::Component MakeDailyReport(AppState &app_state) {
     std::vector<DailyReportsEntry> entries =
         app_state.GetCurrentReportEntries();
     ftxui::Elements entry_list;
-    int count = 1;
+    int count = 0;
 
     for (const auto &entry : entries) {
       ftxui::Element status;
 
       if (entry.was_completed && entry.total > 1) {
-        status = ftxui::text("󰱒 " + std::to_string(entry.total));
+        status = ftxui::text("󰸞 " + std::to_string(entry.total)) |
+                 ftxui::color(ftxui::Color::Green);
       } else if (entry.was_completed) {
-        status = ftxui::text("󰱒 ");
+        status = ftxui::text("󰸞 ") | ftxui::color(ftxui::Color::Green);
+      } else if (entry.progress == 0) {
+        status = ftxui::text(" ") | ftxui::color(ftxui::Color::Red);
       } else {
         status = ftxui::text(std::format("{}/{}", entry.progress, entry.total));
       }
       auto row = ftxui::hbox({
-          ftxui::text(std::format("{:>3}", count)),
+          ftxui::text(std::format("{:>3}", count + 1)),
           ftxui::text(" | "),
           ftxui::filler(),
           ftxui::text(entry.task_name),
           ftxui::filler(),
-          ftxui::text(" | "),
           status,
       });
 
+      if (count == app_state.current_entry) {
+        row |= ftxui::color(ftxui::Color::Black);
+        row |= ftxui::bgcolor(ftxui::Color::White);
+        row |= ftxui::focus;
+      }
+
       entry_list.push_back(row);
+      count++;
     }
 
     return ftxui::window(

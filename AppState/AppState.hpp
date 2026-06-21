@@ -65,6 +65,8 @@ struct AppState {
 
   std::vector<std::string> report_date_entries;
   int current_report = 0;
+  int total_entries = 0;
+  int current_entry = 0;
 
   explicit AppState(Transactor &db_trans) : trans(db_trans) {
     navigation_stack.push(Page::MainMenu);
@@ -76,19 +78,19 @@ struct AppState {
                 if (a.type != b.type)
                   return task_type_rank(a.type) < task_type_rank(b.type);
 
-                if (a.done != b.done)
-                  return a.done;
-
                 bool a_set = a.deadline.is_set();
                 bool b_set = b.deadline.is_set();
                 if (a_set != b_set)
                   return a_set;
 
-                if (a.deadline < b.deadline)
-                  return true;
+                if (a.deadline.to_string() != b.deadline.to_string())
+                  return a.deadline < b.deadline;
 
-                if (a.total > b.total)
-                  return true;
+                if (a.done != b.done)
+                  return a.done;
+
+                if (a.total != b.total)
+                  return a.total < b.total;
 
                 return a.id < b.id;
               });
@@ -175,6 +177,8 @@ struct AppState {
                           this->daily_reports[this->current_report].id;
                  });
 
+    this->total_entries = entries.size();
+
     return entries;
   }
 
@@ -232,6 +236,7 @@ struct AppState {
         .report_date = std::chrono::floor<std::chrono::days>(
             std::chrono::system_clock::now()),
     });
+    this->daily_reports.push_back(report_from_row(res[0]));
     int report_id = res[0]["id"].as<int>();
 
     for (Task &task : tasks) {
@@ -248,7 +253,8 @@ struct AppState {
           .was_completed = task.done,
       };
 
-      trans.insert<NewDailyReportsEntry>(entry);
+      pqxx::result sub_res = trans.insert<NewDailyReportsEntry>(entry);
+      this->daily_report_entries.push_back(report_entry_from_row(sub_res[0]));
 
       switch (task.type) {
       case TaskType::ONCE:

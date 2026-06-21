@@ -65,6 +65,7 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
             .deadline = task.deadline,
             .progress = task.progress,
         });
+        app_state.SortTasks();
 
         return true;
       }
@@ -83,6 +84,7 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
             .deadline = task.deadline,
             .progress = task.progress,
         });
+        app_state.SortTasks();
 
         return true;
       }
@@ -107,6 +109,22 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
       break;
 
     case Page::Reports:
+      break;
+    case Page::DailyReport:
+      if (event == ftxui::Event::Character('j') ||
+          event == ftxui::Event::ArrowDown) {
+        if (app_state.current_entry >= app_state.total_entries - 1)
+          return false;
+        app_state.current_entry++;
+        return true;
+      }
+      if (event == ftxui::Event::Character('k') ||
+          event == ftxui::Event::ArrowUp) {
+        if (app_state.current_entry <= 0)
+          return false;
+        app_state.current_entry--;
+        return true;
+      }
       break;
     }
 
