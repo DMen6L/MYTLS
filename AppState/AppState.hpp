@@ -202,12 +202,12 @@ struct AppState {
     int progress = 0;
     try {
       progress = std::stoi(this->temp_progress);
-      if (progress < 1)
-        progress = 1;
+      if (progress < 0)
+        progress = 0;
     } catch (const std::invalid_argument &) {
-      progress = 1;
+      progress = 0;
     } catch (const std::out_of_range &) {
-      progress = 1;
+      progress = 0;
     }
     this->new_task.progress = progress;
   }

@@ -88,8 +88,18 @@ ftxui::Component MakeTodoAdd(AppState &app_state) {
     app_state.NavigationBack();
   });
 
-  return ftxui::Container::Vertical({name_field, type_dropdown, deadline_field,
-                                     total_field, progress_field, submit});
+  auto container = ftxui::Container::Vertical({
+      name_field,
+      type_dropdown,
+      deadline_field,
+      total_field,
+      progress_field,
+      submit,
+  });
+  return ftxui::Renderer(container, [container] {
+    return ftxui::window(ftxui::text("Add Task"),
+                         ftxui::vbox({container->Render()}));
+  });
 }
 
 ftxui::Component MakeTodoUpdate(AppState &app_state) {
@@ -129,8 +139,20 @@ ftxui::Component MakeTodoUpdate(AppState &app_state) {
     app_state.NavigationBack();
   });
 
-  return ftxui::Container::Vertical({name_field, type_dropdown, deadline_field,
-                                     total_field, progress_field, submit});
+  auto container = ftxui::Container::Vertical({
+      name_field,
+      type_dropdown,
+      deadline_field,
+      total_field,
+      progress_field,
+      submit,
+  });
+
+  return ftxui::Renderer(container, [container] {
+    return ftxui::window(ftxui::text("Update Task"), ftxui::vbox({
+                                                         container->Render(),
+                                                     }));
+  });
 }
 
 ftxui::Component MakeDailyEntryList(AppState &app_state) {
