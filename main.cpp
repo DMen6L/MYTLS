@@ -26,10 +26,12 @@ int main() {
   auto container = Container::Tab(
       {
           main_menu,
+          MakeMyDataBody(),
           MakeTodoList(app_state),
           MakeTodoAdd(app_state),
           MakeTodoUpdate(app_state),
-          MakeMyDataBody(),
+          MakeDailyEntryList(app_state),
+          MakeDailyReport(app_state),
       },
       &app_state.current_page);
   container |= CatchEvent(MakeInputHandler(app_state));

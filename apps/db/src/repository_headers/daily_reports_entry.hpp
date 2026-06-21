@@ -52,4 +52,6 @@ struct NewDailyReportsEntry : DailyReportsEntryTable {
   }
 };
 
+DailyReportsEntry report_entry_from_row(const pqxx::result::reference &row);
+
 #endif

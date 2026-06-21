@@ -33,6 +33,11 @@ struct TaskSchedule {
   };
   struct Weekly {
     std::optional<int> weekday;
+
+    std::vector<std::string> weekdays = {
+        "Monday", "Tuesday",  "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday",
+    };
   };
   struct Monthly {
     std::optional<int> day;
@@ -155,7 +160,7 @@ struct TaskSchedule {
           else if constexpr (std::is_same_v<T, Weekly>) {
             if (!v.weekday.has_value())
               return "";
-            return std::to_string(*v.weekday);
+            return v.weekdays[*v.weekday - 1];
           }
 
           else if constexpr (std::is_same_v<T, Monthly>) {

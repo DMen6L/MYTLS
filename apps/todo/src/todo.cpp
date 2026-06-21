@@ -1,5 +1,7 @@
 #include "todo.hpp"
 #include "AppState.hpp"
+#include "daily_reports.hpp"
+#include "daily_reports_entry.hpp"
 #include "db.hpp"
 #include "task.hpp"
 
@@ -13,6 +15,7 @@
 #include <ftxui/screen/color.hpp>
 #include <pqxx/pqxx>
 #include <string>
+#include <utility>
 #include <vector>
 
 ftxui::Component MakeTodoList(AppState &app_state) {
@@ -30,7 +33,10 @@ ftxui::Component MakeTodoList(AppState &app_state) {
                  ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 10) |
                  ftxui::color(ftxui::Color::Green)});
       } else {
-        status = ftxui::text(task.done ? "󰱒 " : " ");
+        if (task.done)
+          status = ftxui::text("󰱒 ") | ftxui::color(ftxui::Color::Green);
+        else
+          status = ftxui::text(" ");
       }
 
       auto row = ftxui::hbox({
@@ -49,6 +55,7 @@ ftxui::Component MakeTodoList(AppState &app_state) {
       if (app_state.current_todo == count) {
         row |= ftxui::color(ftxui::Color::Black);
         row |= ftxui::bgcolor(ftxui::Color::White);
+        row |= ftxui::focus;
       }
 
       task_list.push_back(row);
@@ -56,7 +63,7 @@ ftxui::Component MakeTodoList(AppState &app_state) {
     }
 
     return ftxui::window(ftxui::text("TODO List"),
-                         ftxui::vbox(std::move(task_list)));
+                         ftxui::vbox(std::move(task_list)) | ftxui::frame);
   });
 }
 
@@ -124,4 +131,54 @@ ftxui::Component MakeTodoUpdate(AppState &app_state) {
 
   return ftxui::Container::Vertical({name_field, type_dropdown, deadline_field,
                                      total_field, progress_field, submit});
+}
+
+ftxui::Component MakeDailyEntryList(AppState &app_state) {
+  auto report_dates_dropdown = ftxui::Dropdown(&app_state.report_date_entries,
+                                               &app_state.current_report);
+  auto choose1 = ftxui::Button(
+      "select", [&] { app_state.NavigationForward(Page::DailyReport); });
+
+  return ftxui::Container::Vertical({
+      ftxui::Container::Horizontal({
+          report_dates_dropdown,
+          choose1,
+      }),
+  });
+}
+
+ftxui::Component MakeDailyReport(AppState &app_state) {
+  return ftxui::Renderer([&] {
+    std::vector<DailyReportsEntry> entries =
+        app_state.GetCurrentReportEntries();
+    ftxui::Elements entry_list;
+    int count = 1;
+
+    for (const auto &entry : entries) {
+      ftxui::Element status;
+
+      if (entry.was_completed && entry.total > 1) {
+        status = ftxui::text("󰱒 " + std::to_string(entry.total));
+      } else if (entry.was_completed) {
+        status = ftxui::text("󰱒 ");
+      } else {
+        status = ftxui::text(std::format("{}/{}", entry.progress, entry.total));
+      }
+      auto row = ftxui::hbox({
+          ftxui::text(std::format("{:>3}", count)),
+          ftxui::text(" | "),
+          ftxui::filler(),
+          ftxui::text(entry.task_name),
+          ftxui::filler(),
+          ftxui::text(" | "),
+          status,
+      });
+
+      entry_list.push_back(row);
+    }
+
+    return ftxui::window(
+        ftxui::text(app_state.report_date_entries[app_state.current_report]),
+        ftxui::vbox(std::move(entry_list)) | ftxui::xflex | ftxui::frame);
+  });
 }

@@ -105,6 +105,9 @@ std::function<bool(ftxui::Event)> MakeInputHandler(AppState &app_state) {
 
     case Page::MyData:
       break;
+
+    case Page::Reports:
+      break;
     }
 
     return false;

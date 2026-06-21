@@ -2,6 +2,8 @@ add_library(db
   src/database/db.cpp
   src/extra/env.cpp
   src/repository_headers/task.cpp
+  src/repository_headers/daily_reports.cpp
+  src/repository_headers/daily_reports_entry.cpp
 )
 
 find_package(libpqxx REQUIRED)

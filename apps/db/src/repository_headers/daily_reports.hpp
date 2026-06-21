@@ -30,15 +30,20 @@ struct DailyReports : DailyReportsTable {
   int id;
   std::chrono::year_month_day report_date;
 
-  std::vector<std::string> values() const {
+  std::string get_date() const {
     std::ostringstream ss;
 
-    ss << "'" << int(report_date.year()) << "-" << unsigned(report_date.month())
-       << "-" << unsigned(report_date.day()) << "'";
+    ss << int(report_date.year()) << "-" << unsigned(report_date.month()) << "-"
+       << unsigned(report_date.day());
+
+    return ss.str();
+  }
+
+  std::vector<std::string> values() const {
 
     return {
         std::to_string(id),
-        ss.str(),
+        "'" + this->get_date() + "'",
     };
   }
 };
@@ -57,5 +62,7 @@ struct NewDailyReports : DailyReportsTable {
     };
   }
 };
+
+DailyReports report_from_row(const pqxx::result::reference &row);
 
 #endif // !DAILY_REPORTS

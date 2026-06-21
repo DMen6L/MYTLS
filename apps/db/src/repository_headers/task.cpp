@@ -52,15 +52,15 @@ Task task_from_row(const pqxx::result::reference &row) {
 
 int task_type_rank(const TaskType &type) {
   switch (type) {
-  case TaskType::DAILY:
-    return 0;
-  case TaskType::WEEKLY:
-    return 1;
-  case TaskType::MONTHLY:
-    return 2;
-  case TaskType::ONCE:
-    return 3;
   case TaskType::LONGTERM:
+    return 0;
+  case TaskType::DAILY:
+    return 1;
+  case TaskType::WEEKLY:
+    return 2;
+  case TaskType::MONTHLY:
+    return 3;
+  case TaskType::ONCE:
     return 4;
   }
 

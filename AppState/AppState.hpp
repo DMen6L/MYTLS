@@ -7,7 +7,9 @@
 #include "task.hpp"
 #include "transactor.hpp"
 
+#include <algorithm>
 #include <ftxui/component/app.hpp>
+#include <iterator>
 #include <stack>
 #include <stdexcept>
 #include <string>
@@ -15,10 +17,12 @@
 
 enum class Page {
   MainMenu = 0,
-  TodoList = 1,
-  TodoAdd = 2,
-  TodoUpdate = 3,
-  MyData = 4,
+  MyData = 1,
+  TodoList = 2,
+  TodoAdd = 3,
+  TodoUpdate = 4,
+  Reports = 5,
+  DailyReport = 6,
 };
 
 std::string page_to_string(const Page &page);
@@ -27,7 +31,11 @@ Page string_to_page(const std::string &page_str);
 struct AppState {
   // Global
   Transactor &trans;
-  std::vector<std::string> main_menu_entries = {"TodoList", "MyData"};
+  std::vector<std::string> main_menu_entries = {
+      "MyData",
+      "TodoList",
+      "Reports",
+  };
   int main_menu_selected = 0;
   int current_page = 0;
   std::stack<Page> navigation_stack;
@@ -52,6 +60,12 @@ struct AppState {
   std::string edit_total;
   std::string edit_progress;
 
+  std::vector<DailyReports> daily_reports;
+  std::vector<DailyReportsEntry> daily_report_entries;
+
+  std::vector<std::string> report_date_entries;
+  int current_report = 0;
+
   explicit AppState(Transactor &db_trans) : trans(db_trans) {
     navigation_stack.push(Page::MainMenu);
   }
@@ -62,6 +76,9 @@ struct AppState {
                 if (a.type != b.type)
                   return task_type_rank(a.type) < task_type_rank(b.type);
 
+                if (a.done != b.done)
+                  return a.done;
+
                 bool a_set = a.deadline.is_set();
                 bool b_set = b.deadline.is_set();
                 if (a_set != b_set)
@@ -70,8 +87,8 @@ struct AppState {
                 if (a.deadline < b.deadline)
                   return true;
 
-                if (a.done != b.done)
-                  return a.done;
+                if (a.total > b.total)
+                  return true;
 
                 return a.id < b.id;
               });
@@ -82,6 +99,7 @@ struct AppState {
     this->trans.init_table<TaskTable>();
     this->trans.init_table<DailyReportsTable>();
     this->trans.init_table<DailyReportsEntryTable>();
+
     pqxx::result res = this->trans.select_all<TaskTable>();
 
     for (const auto &row : res) {
@@ -92,6 +110,22 @@ struct AppState {
 
     for (const TaskType &type : AllTaskTypes) {
       type_entries.push_back(task_type_to_string(type));
+    }
+
+    res = this->trans.select_all<DailyReportsTable>();
+
+    for (const auto &row : res) {
+      this->daily_reports.push_back(report_from_row(row));
+    }
+
+    for (const auto &report : this->daily_reports) {
+      this->report_date_entries.push_back(report.get_date());
+    }
+
+    res = this->trans.select_all<DailyReportsEntryTable>();
+
+    for (const auto &row : res) {
+      this->daily_report_entries.push_back(report_entry_from_row(row));
     }
   }
 
@@ -130,6 +164,19 @@ struct AppState {
   }
 
   Task GetCurrentTask() const { return this->tasks[this->current_todo]; }
+
+  std::vector<DailyReportsEntry> GetCurrentReportEntries() {
+    std::vector<DailyReportsEntry> entries;
+
+    std::copy_if(this->daily_report_entries.begin(),
+                 this->daily_report_entries.end(), std::back_inserter(entries),
+                 [&](const DailyReportsEntry &entry) {
+                   return entry.reports_id ==
+                          this->daily_reports[this->current_report].id;
+                 });
+
+    return entries;
+  }
 
   void ReadTempValues() {
     this->new_task.type = AllTaskTypes[this->selected_type];
