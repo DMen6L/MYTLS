@@ -1,9 +1,0 @@
-[submodule "todo-app/external/ftxui"]
-	path = todo-app/external/ftxui
-	url = https://github.com/ArthurSonzogni/FTXUI
-[submodule "external/ftxui"]
-	path = external/ftxui
-	url = https://github.com/ArthurSonzogni/FTXUI
-[submodule "external/FTXUI"]
-	path = external/FTXUI
-	url = https://github.com/ArthurSonzogni/FTXUI.git

@@ -1,7 +1,1 @@
-build/
-
-.clang-format
 .env
-
-CLAUDE.md
-compile_commands.json
