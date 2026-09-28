@@ -1,1 +1,5 @@
 .env
+.clangd
+
+build/
+AGENTS.md
