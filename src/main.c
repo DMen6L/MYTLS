@@ -1,6 +1,9 @@
 #include "database.h"
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define TITLE_SIZE 256
@@ -28,6 +31,7 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(argv[2], "add") == 0) {
             if (argc < 4) {
                 fprintf(stderr, "Missing task title for add\n");
+                sqlite3_close(db);
                 return 1;
             }
 
@@ -39,6 +43,7 @@ int main(int argc, char *argv[]) {
 
                 if (needed > sizeof(title)) {
                     fprintf(stderr, "Task title too long\n");
+                    sqlite3_close(db);
                     return 1;
                 }
 
@@ -50,6 +55,28 @@ int main(int argc, char *argv[]) {
             }
 
             add_task(db, title);
+        } else if (strcmp(argv[2], "done") == 0) {
+            if (argc > 4) {
+                fprintf(stderr, "Too many arguments for the task <done>");
+                sqlite3_close(db);
+                return 1;
+            }
+
+            char *end;
+            errno = 0;
+
+            long value = strtol(argv[3], &end, 10);
+
+            if (errno == ERANGE || end == argv[3] || *end != '\0' ||
+                value <= 0 || value > INT_MAX) {
+                fprintf(stderr, "Invalid task ID\n");
+                sqlite3_close(db);
+                return 1;
+            }
+
+            int id = (int)value;
+
+            complete_task(db, id);
         }
     }
 

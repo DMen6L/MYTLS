@@ -6,5 +6,6 @@
 int create_conn(sqlite3 **db);
 int list_tasks(sqlite3 *db);
 int add_task(sqlite3 *db, const char *title);
+int complete_task(sqlite3 *db, int id);
 
 #endif
