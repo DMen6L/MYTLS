@@ -1,1 +1,4 @@
-tasks.txt
+*.db
+build/
+
+compile_commands.json
