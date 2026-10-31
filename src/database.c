@@ -7,6 +7,7 @@ int create_conn(sqlite3 **db) {
     // Checking for connection
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Error: %s\n", sqlite3_errmsg(*db));
+        sqlite3_close(*db);
         *db = NULL;
         return 1;
     }
@@ -90,10 +91,14 @@ int complete_task(sqlite3 *db, int id) {
     }
 
     int rc = sqlite3_exec(db, sql, NULL, NULL, NULL);
-
     sqlite3_free(sql);
 
     if (rc != SQLITE_OK) {
+        fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+        return 1;
+    }
+
+    if (sqlite3_changes(db) == 0) {
         fprintf(stderr, "Task %d not found\n", id);
         return 1;
     }

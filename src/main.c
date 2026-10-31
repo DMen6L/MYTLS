@@ -1,6 +1,7 @@
 #include "database.h"
 
 #include <errno.h>
+#include <iso646.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +25,12 @@ int main(int argc, char *argv[]) {
     // TODO tasks
     if (strcmp(argv[1], "todo") == 0) {
         if (strcmp(argv[2], "list") == 0) {
+            if (argc > 3) {
+                fprintf(stderr, "Too many arguments for todo list command.");
+                sqlite3_close(db);
+                return 1;
+            }
+
             if (list_tasks(db) != 0) {
                 sqlite3_close(db);
                 return 1;
@@ -54,10 +61,14 @@ int main(int argc, char *argv[]) {
                 strcat(title, argv[i]);
             }
 
-            add_task(db, title);
+            if (add_task(db, title) != 0) {
+                sqlite3_close(db);
+                return 1;
+            }
         } else if (strcmp(argv[2], "done") == 0) {
-            if (argc > 4) {
-                fprintf(stderr, "Too many arguments for the task <done>");
+            if (argc != 4) {
+                fprintf(stderr,
+                        "Incorrect amount of arguments for done command.");
                 sqlite3_close(db);
                 return 1;
             }
@@ -76,7 +87,10 @@ int main(int argc, char *argv[]) {
 
             int id = (int)value;
 
-            complete_task(db, id);
+            if (complete_task(db, id) != 0) {
+                sqlite3_close(db);
+                return 1;
+            }
         }
     }
 
