@@ -6,8 +6,7 @@ int create_conn(sqlite3 **db) {
 
     // Checking for connection
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "Error: %s\n", sqlite3_errmsg(*db));
-        sqlite3_close(*db);
+        fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(*db));
         *db = NULL;
         return 1;
     }
@@ -22,8 +21,7 @@ int create_conn(sqlite3 **db) {
     rc = sqlite3_exec(*db, sql, NULL, NULL, NULL);
 
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(*db));
-        sqlite3_close(*db);
+        fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(*db));
         *db = NULL;
         return 1;
     }
@@ -39,9 +37,7 @@ int list_tasks(sqlite3 *db) {
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
 
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "Prepare error: %s\n", sqlite3_errmsg(db));
-        sqlite3_close(db);
-        db = NULL;
+        fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(db));
         return 1;
     }
 
@@ -54,10 +50,8 @@ int list_tasks(sqlite3 *db) {
     }
 
     if (rc != SQLITE_DONE) {
-        fprintf(stderr, "Query error: %s\n", sqlite3_errmsg(db));
+        fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
-        sqlite3_close(db);
-        db = NULL;
         return 1;
     }
 
@@ -70,8 +64,6 @@ int add_task(sqlite3 *db, const char *title) {
 
     if (sql == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
-        sqlite3_close(db);
-        db = NULL;
         return 1;
     }
 
@@ -81,8 +73,6 @@ int add_task(sqlite3 *db, const char *title) {
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
-        sqlite3_close(db);
-        db = NULL;
         return 1;
     }
 
@@ -95,8 +85,6 @@ int complete_task(sqlite3 *db, int id) {
 
     if (sql == NULL) {
         fprintf(stderr, "Memory allocation failed");
-        sqlite3_close(db);
-        db = NULL;
         return 1;
     }
 
@@ -105,15 +93,11 @@ int complete_task(sqlite3 *db, int id) {
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
-        sqlite3_close(db);
-        db = NULL;
         return 1;
     }
 
     if (sqlite3_changes(db) == 0) {
         fprintf(stderr, "Task %d not found\n", id);
-        sqlite3_close(db);
-        db = NULL;
         return 1;
     }
 
