@@ -40,6 +40,8 @@ int list_tasks(sqlite3 *db) {
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Prepare error: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        db = NULL;
         return 1;
     }
 
@@ -54,6 +56,8 @@ int list_tasks(sqlite3 *db) {
     if (rc != SQLITE_DONE) {
         fprintf(stderr, "Query error: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        db = NULL;
         return 1;
     }
 
@@ -66,6 +70,8 @@ int add_task(sqlite3 *db, const char *title) {
 
     if (sql == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
+        sqlite3_close(db);
+        db = NULL;
         return 1;
     }
 
@@ -75,6 +81,8 @@ int add_task(sqlite3 *db, const char *title) {
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        db = NULL;
         return 1;
     }
 
@@ -87,6 +95,8 @@ int complete_task(sqlite3 *db, int id) {
 
     if (sql == NULL) {
         fprintf(stderr, "Memory allocation failed");
+        sqlite3_close(db);
+        db = NULL;
         return 1;
     }
 
@@ -95,11 +105,15 @@ int complete_task(sqlite3 *db, int id) {
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        db = NULL;
         return 1;
     }
 
     if (sqlite3_changes(db) == 0) {
         fprintf(stderr, "Task %d not found\n", id);
+        sqlite3_close(db);
+        db = NULL;
         return 1;
     }
 
