@@ -1,104 +1,131 @@
 #include "database.h"
+#include "task.h"
 
-#include <errno.h>
-#include <iso646.h>
+#include <curses.h>
 #include <limits.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define TITLE_SIZE 256
+typedef struct {
+    TaskList tasks;
+    size_t selected;
+    int running;
+} TuiState;
 
 int user_manual(); // Print user manual
+void parse_controlch(sqlite3 *db, TuiState *state, int ch);
+
+int cli_run(sqlite3 *db, int argc, char *argv[]);
+int tui_run(sqlite3 *db);
+int list_tasks(TaskList *tasks, int selected);
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        return user_manual();
-    }
-
     sqlite3 *db = NULL; // db connection
 
     if (create_conn(&db) != 0) {
         return 1;
     }
 
-    // TODO tasks
-    if (strcmp(argv[1], "todo") == 0) {
-        if (strcmp(argv[2], "list") == 0) {
-            if (argc > 3) {
-                fprintf(stderr, "Too many arguments for todo list command.");
-                sqlite3_close(db);
-                return 1;
-            }
-
-            if (list_tasks(db) != 0) {
-                sqlite3_close(db);
-                return 1;
-            }
-        } else if (strcmp(argv[2], "add") == 0) {
-            if (argc < 4) {
-                fprintf(stderr, "Missing task title for add\n");
-                sqlite3_close(db);
-                return 1;
-            }
-
-            char title[TITLE_SIZE] = "";
-
-            for (int i = 3; i < argc; i++) {
-                size_t needed =
-                    strlen(title) + strlen(argv[i]) + (i > 3 ? 1 : 0) + 1;
-
-                if (needed > sizeof(title)) {
-                    fprintf(stderr, "Task title too long\n");
-                    sqlite3_close(db);
-                    return 1;
-                }
-
-                if (i > 3) {
-                    strcat(title, " ");
-                }
-
-                strcat(title, argv[i]);
-            }
-
-            if (add_task(db, title) != 0) {
-                sqlite3_close(db);
-                return 1;
-            }
-        } else if (strcmp(argv[2], "done") == 0) {
-            if (argc != 4) {
-                fprintf(stderr,
-                        "Incorrect amount of arguments for done command.");
-                sqlite3_close(db);
-                return 1;
-            }
-
-            char *end;
-            errno = 0;
-
-            long value = strtol(argv[3], &end, 10);
-
-            if (errno == ERANGE || end == argv[3] || *end != '\0' ||
-                value <= 0 || value > INT_MAX) {
-                fprintf(stderr, "Invalid task ID\n");
-                sqlite3_close(db);
-                return 1;
-            }
-
-            int id = (int)value;
-
-            if (complete_task(db, id) != 0) {
-                sqlite3_close(db);
-                return 1;
-            }
-        }
-    }
+    int result = cli_run(db, argc, argv);
 
     sqlite3_close(db);
-    return 0;
+    db = NULL;
+    return result;
 }
 
 int user_manual() {
     printf("Usage: mytls <todo> <...>\n");
     return 1;
+}
+
+void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
+    if (ch == 'q')
+        state->running = 0;
+    else if ((ch == KEY_UP || ch == 'k') && state->selected > 0) {
+        state->selected--;
+    } else if ((ch == KEY_DOWN || ch == 'j') &&
+               state->selected < state->tasks.count - 1) {
+        state->selected++;
+    } else if (ch == 'd') {
+        if (state->selected >= state->tasks.count) {
+            return;
+        }
+
+        Task *task = &state->tasks.items[state->selected];
+
+        if (complete_task(db, task->id) == 0)
+            task->done = 1;
+    } else if (ch == 'u') {
+        Task *task = &state->tasks.items[state->selected];
+
+        task->done = 0;
+    }
+}
+
+int cli_run(sqlite3 *db, int argc, char *argv[]) {
+    if (argc == 2 && strcmp(argv[1], "tui") == 0) {
+        return tui_run(db);
+    }
+
+    return user_manual();
+}
+
+int tui_run(sqlite3 *db) {
+    // Initialize TUI state
+    TuiState state = {.tasks = {0}, .selected = 0, .running = 1};
+
+    if (fetch_tasks(db, 0, PAGE_SIZE, &state.tasks)) {
+        fprintf(stderr, "Could not load tasks\n");
+        return 1;
+    }
+
+    if (initscr() == NULL) {
+        task_list_free(&state.tasks);
+        return 1;
+    }
+
+    cbreak();             // Receive input without pressing Enter
+    noecho();             // Don't print typed keys automatically
+    keypad(stdscr, TRUE); // Recognize arrow keys
+    curs_set(0);
+
+    while (state.running) {
+        erase();
+        list_tasks(&state.tasks, state.selected);
+        int ch = getch();
+
+        parse_controlch(db, &state, ch);
+    }
+
+    endwin();
+    task_list_free(&state.tasks);
+
+    return 0;
+}
+
+int list_tasks(TaskList *tasks, int selected) {
+    mvprintw(1, 2, "TASK MANAGER");
+    mvprintw(3, 2, "%-5s %-20s %-10s", "ID", "TASK", "STATUS");
+
+    mvhline(4, 2, ACS_HLINE, 40);
+
+    for (size_t i = 0; i < tasks->count; i++) {
+        if (i == selected)
+            attron(A_REVERSE);
+
+        Task *task = &tasks->items[i];
+
+        mvprintw(5 + i, 2, "%-5d %-20.20s %-10s", task->id, task->title,
+                 task->done ? "Done" : "Pending");
+
+        if (selected == i)
+            attroff(A_REVERSE);
+    }
+
+    mvprintw(tasks->count + 6, 2, "UP/DOWN: NAVIGATE | q: QUIT");
+    refresh();
+
+    return 0;
 }

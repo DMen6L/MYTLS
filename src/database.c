@@ -1,5 +1,11 @@
 #include "database.h"
+#include "task.h"
+
+#include <curses.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 int create_conn(sqlite3 **db) {
     int rc = sqlite3_open("tasks.db", db); // Opening the db
@@ -7,6 +13,7 @@ int create_conn(sqlite3 **db) {
     // Checking for connection
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(*db));
+        sqlite3_close(*db);
         *db = NULL;
         return 1;
     }
@@ -22,6 +29,7 @@ int create_conn(sqlite3 **db) {
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(*db));
+        sqlite3_close(*db);
         *db = NULL;
         return 1;
     }
@@ -29,78 +37,121 @@ int create_conn(sqlite3 **db) {
     return 0;
 }
 
-int list_tasks(sqlite3 *db) {
-    sqlite3_stmt *stmt = NULL;
+int fetch_tasks(sqlite3 *db, int page, size_t page_size, TaskList *out) {
+    if (db == NULL || out == NULL || out->items != NULL || out->count != 0) {
+        return 1;
+    }
 
-    const char *sql = "SELECT id, title, done FROM tasks ORDER BY id";
+    if (page < 0 || page_size == 0 || page_size > SIZE_MAX / sizeof(Task) ||
+        (uintmax_t)page_size > INT64_MAX) {
+        return 1;
+    }
+
+    sqlite3_int64 limit = (sqlite3_int64)page_size;
+
+    if (page != 0 && limit > INT64_MAX / page) {
+        return 1;
+    }
+
+    sqlite3_int64 offset = (sqlite3_int64)page * limit;
+    sqlite3_stmt *stmt = NULL;
+    Task *items = NULL;
+    size_t count = 0;
+
+    const char *sql = "SELECT id, title, done FROM tasks "
+                      "ORDER BY id LIMIT ? OFFSET ?;";
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        goto fail;
+    }
+
+    if (sqlite3_bind_int64(stmt, 1, limit) != SQLITE_OK ||
+        sqlite3_bind_int64(stmt, 2, offset) != SQLITE_OK) {
+        goto fail;
+    }
+
+    items = malloc(page_size * sizeof(*items));
+    if (items == NULL) {
+        goto fail;
+    }
+
+    int rc;
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (count >= page_size) {
+            goto fail;
+        }
+
+        Task *task = &items[count];
+        task->id = sqlite3_column_int(stmt, 0);
+
+        const unsigned char *title = sqlite3_column_text(stmt, 1);
+        if (title == NULL) {
+            goto fail;
+        }
+
+        snprintf(task->title, sizeof(task->title), "%s", (const char *)title);
+
+        task->done = sqlite3_column_int(stmt, 2);
+        count++;
+    }
+
+    if (rc != SQLITE_DONE) {
+        goto fail;
+    }
+
+    int finalize_rc = sqlite3_finalize(stmt);
+    stmt = NULL;
+
+    if (finalize_rc != SQLITE_OK) {
+        goto fail;
+    }
+
+    if (count == 0) {
+        free(items);
+        items = NULL;
+    }
+
+    out->items = items;
+    out->count = count;
+    return 0;
+
+fail:
+    sqlite3_finalize(stmt);
+    free(items);
+    return 1;
+}
+
+void task_list_free(TaskList *list) {
+    if (list == NULL) {
+        return;
+    }
+
+    free(list->items);
+    list->items = NULL;
+    list->count = 0;
+}
+
+int complete_task(sqlite3 *db, int task_id) {
+    const char *sql = "UPDATE tasks SET done = 1 WHERE id = ?;";
+
+    sqlite3_stmt *stmt = NULL;
 
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
 
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(db));
         return 1;
     }
 
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        int id = sqlite3_column_int(stmt, 0);
-        const unsigned char *title = sqlite3_column_text(stmt, 1);
-        int done = sqlite3_column_int(stmt, 2);
+    sqlite3_bind_int(stmt, 1, task_id);
 
-        printf("%d. [%c] %s\n", id, done ? 'x' : ' ', title);
-    }
-
+    rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return 1;
     }
 
     sqlite3_finalize(stmt);
-    return 0;
-}
 
-int add_task(sqlite3 *db, const char *title) {
-    char *sql = sqlite3_mprintf("INSERT INTO tasks(title) VALUES(%Q);", title);
-
-    if (sql == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        return 1;
-    }
-
-    int rc = sqlite3_exec(db, sql, NULL, NULL, NULL);
-
-    sqlite3_free(sql);
-
-    if (rc != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
-        return 1;
-    }
-
-    printf("Task added successfully\n");
-    return 0;
-}
-
-int complete_task(sqlite3 *db, int id) {
-    char *sql = sqlite3_mprintf("UPDATE tasks SET done = 1 WHERE id = %d;", id);
-
-    if (sql == NULL) {
-        fprintf(stderr, "Memory allocation failed");
-        return 1;
-    }
-
-    int rc = sqlite3_exec(db, sql, NULL, NULL, NULL);
-    sqlite3_free(sql);
-
-    if (rc != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
-        return 1;
-    }
-
-    if (sqlite3_changes(db) == 0) {
-        fprintf(stderr, "Task %d not found\n", id);
-        return 1;
-    }
-
-    printf("Done task %d\n", id);
     return 0;
 }
