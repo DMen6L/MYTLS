@@ -156,3 +156,26 @@ int set_task_done(sqlite3 *db, int task_id, int done) {
 
     return 0;
 }
+
+int add_task(sqlite3 *db, Task *new_task) {
+    const char *sql = "INSERT INTO tasks (title) VALUES(?);";
+
+    sqlite3_stmt *stmt = NULL;
+
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+
+    if (rc != SQLITE_OK) {
+        return 1;
+    }
+
+    sqlite3_bind_text(stmt, 1, new_task->title, -1, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+
+    if (rc == SQLITE_DONE)
+        new_task->id = sqlite3_last_insert_rowid(db);
+
+    sqlite3_finalize(stmt);
+
+    return rc == SQLITE_DONE ? 0 : 1;
+}

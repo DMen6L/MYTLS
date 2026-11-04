@@ -20,6 +20,7 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch);
 int cli_run(sqlite3 *db, int argc, char *argv[]);
 int tui_run(sqlite3 *db);
 int list_tasks(TaskList *tasks, int selected);
+int prompt_new_task(char *title, size_t capacity);
 
 int main(int argc, char *argv[]) {
     sqlite3 *db = NULL; // db connection
@@ -41,15 +42,20 @@ int user_manual() {
 }
 
 void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
+    // If q is pressed stop the TUI
     if (ch == 'q')
         state->running = 0;
+    // If key up is pressed or k is pressed and when it is appropriate move
+    // selected up
     else if ((ch == KEY_UP || ch == 'k') && state->tasks.count > 0 &&
-             state->selected > 0) {
+             state->selected > 0)
         state->selected--;
-    } else if ((ch == KEY_DOWN || ch == 'j') &&
-               state->selected < state->tasks.count - 1) {
+    // The same move logic but down
+    else if ((ch == KEY_DOWN || ch == 'j') &&
+             state->selected < state->tasks.count - 1)
         state->selected++;
-    } else if (ch == 'd' || ch == 'u') {
+    // Toggle done/undone
+    else if (ch == 'd' || ch == 'u') {
         if (state->selected >= state->tasks.count) {
             return;
         }
@@ -60,6 +66,22 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
         if (task->done != desired_done) {
             if (set_task_done(db, task->id, !task->done) == 0)
                 task->done = !task->done;
+        }
+    }
+    // Add new task
+    else if (ch == 'a') {
+        char title[TITLE_SIZE] = {0};
+
+        if (prompt_new_task(title, TITLE_SIZE) == 0) {
+            Task new_task = {.id = -1, .done = 0};
+
+            strcpy(new_task.title, title);
+
+            if (add_task(db, &new_task) == 0 &&
+                state->tasks.count < PAGE_SIZE) {
+                state->tasks.items[state->tasks.count] = new_task;
+                state->tasks.count++;
+            }
         }
     }
 }
@@ -129,4 +151,36 @@ int list_tasks(TaskList *tasks, int selected) {
     refresh();
 
     return 0;
+}
+
+int prompt_new_task(char *title, size_t capacity) {
+    if (capacity < 2 || capacity >= INT_MAX)
+        return 1;
+
+    int height = 5;
+    int width = 50;
+    int y = (LINES - height) / 2;
+    int x = (COLS - width) / 2;
+
+    WINDOW *win = newwin(height, width, y, x);
+    if (!win)
+        return 1;
+
+    box(win, 0, 0);
+    mvwprintw(win, 1, 2, "New task title:");
+    wmove(win, 2, 2);
+
+    echo();
+    curs_set(1);
+
+    int result = wgetnstr(win, title, (int)capacity - 1);
+
+    noecho();
+    curs_set(0);
+
+    delwin(win);
+    touchwin(stdscr);
+    refresh();
+
+    return result == OK && title[0] != '\0' ? 0 : 1;
 }
