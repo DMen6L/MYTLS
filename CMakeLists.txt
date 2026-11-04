@@ -13,6 +13,7 @@ find_package(Curses REQUIRED)
 add_executable(mytls
     src/main.c
     src/database.c
+    src/tui.c
 )
 
 target_include_directories(mytls PRIVATE include ${CURSES_INCLUDE_DIRS})

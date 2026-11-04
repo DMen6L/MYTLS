@@ -6,11 +6,6 @@
 #include "task.h"
 #include <stddef.h>
 
-typedef struct {
-    Task *items;
-    size_t count;
-} TaskList;
-
 int create_conn(sqlite3 **db);
 
 // Tasks work
