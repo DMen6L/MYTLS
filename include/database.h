@@ -17,6 +17,6 @@ int create_conn(sqlite3 **db);
 int fetch_tasks(sqlite3 *db, int page, size_t page_size, TaskList *out);
 void task_list_free(TaskList *list);
 
-int complete_task(sqlite3 *db, int task_id);
+int set_task_done(sqlite3 *db, int task_id, int done);
 
 #endif

@@ -43,24 +43,24 @@ int user_manual() {
 void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
     if (ch == 'q')
         state->running = 0;
-    else if ((ch == KEY_UP || ch == 'k') && state->selected > 0) {
+    else if ((ch == KEY_UP || ch == 'k') && state->tasks.count > 0 &&
+             state->selected > 0) {
         state->selected--;
     } else if ((ch == KEY_DOWN || ch == 'j') &&
                state->selected < state->tasks.count - 1) {
         state->selected++;
-    } else if (ch == 'd') {
+    } else if (ch == 'd' || ch == 'u') {
         if (state->selected >= state->tasks.count) {
             return;
         }
 
         Task *task = &state->tasks.items[state->selected];
+        int desired_done = (ch == 'd');
 
-        if (complete_task(db, task->id) == 0)
-            task->done = 1;
-    } else if (ch == 'u') {
-        Task *task = &state->tasks.items[state->selected];
-
-        task->done = 0;
+        if (task->done != desired_done) {
+            if (set_task_done(db, task->id, !task->done) == 0)
+                task->done = !task->done;
+        }
     }
 }
 
@@ -76,13 +76,14 @@ int tui_run(sqlite3 *db) {
     // Initialize TUI state
     TuiState state = {.tasks = {0}, .selected = 0, .running = 1};
 
-    if (fetch_tasks(db, 0, PAGE_SIZE, &state.tasks)) {
+    if (fetch_tasks(db, 0, PAGE_SIZE, &state.tasks) != 0) {
         fprintf(stderr, "Could not load tasks\n");
         return 1;
     }
 
     if (initscr() == NULL) {
         task_list_free(&state.tasks);
+        fprintf(stderr, "Could not initialize the curses screen");
         return 1;
     }
 

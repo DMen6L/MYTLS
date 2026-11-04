@@ -132,8 +132,8 @@ void task_list_free(TaskList *list) {
     list->count = 0;
 }
 
-int complete_task(sqlite3 *db, int task_id) {
-    const char *sql = "UPDATE tasks SET done = 1 WHERE id = ?;";
+int set_task_done(sqlite3 *db, int task_id, int done) {
+    const char *sql = "UPDATE tasks SET done = ? WHERE id = ?;";
 
     sqlite3_stmt *stmt = NULL;
 
@@ -143,7 +143,8 @@ int complete_task(sqlite3 *db, int task_id) {
         return 1;
     }
 
-    sqlite3_bind_int(stmt, 1, task_id);
+    sqlite3_bind_int(stmt, 1, done);
+    sqlite3_bind_int(stmt, 2, task_id);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
