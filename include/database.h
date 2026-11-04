@@ -14,5 +14,6 @@ void task_list_free(TaskList *list);
 
 int set_task_done(sqlite3 *db, int task_id, int done);
 int add_task(sqlite3 *db, Task *new_task);
+int del_task(sqlite3 *db, int task_id);
 
 #endif

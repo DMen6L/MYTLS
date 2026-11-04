@@ -3,6 +3,7 @@
 
 #include <curses.h>
 #include <limits.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -82,6 +83,27 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
                 state->tasks.count++;
             }
         }
+    } else if (ch == 'x') {
+        if (state->selected >= state->tasks.count)
+            return;
+        Task *task = &state->tasks.items[state->selected];
+
+        prompt_task_del(db, task);
+
+        // If task is deleted shift it to the left
+        if (task->id == -1) {
+            size_t index = state->selected;
+
+            for (size_t i = index; i + 1 < state->tasks.count; i++) {
+                state->tasks.items[i] = state->tasks.items[i + 1];
+            }
+
+            state->tasks.count--;
+
+            if (state->selected >= state->tasks.count && state->selected > 0) {
+                state->selected--;
+            }
+        }
     }
 }
 
@@ -140,4 +162,43 @@ int prompt_new_task(char *title, size_t capacity) {
     refresh();
 
     return result == OK && title[0] != '\0' ? 0 : 1;
+}
+
+int prompt_task_del(sqlite3 *db, Task *task) {
+    int height = 5;
+    int width = 50;
+    int y = (LINES - height) / 2;
+    int x = (COLS - width) / 2;
+
+    WINDOW *win = newwin(height, width, y, x);
+    if (!win)
+        return 1;
+
+    box(win, 0, 0);
+    mvwprintw(win, 1, 2, "Are you sure you wanna delete this task?");
+    mvwprintw(win, 2, 2, "%.40s (y/n)", task->title);
+
+    wrefresh(win);
+
+    int choice;
+
+    do {
+        choice = wgetch(win);
+    } while (choice != 'y' && choice != 'n');
+
+    int result = 1;
+
+    if (choice == 'y') {
+        if (del_task(db, task->id) == 0) {
+            task->id = -1;
+            result = 0;
+        }
+    }
+
+    delwin(win);
+
+    touchwin(stdscr);
+    refresh();
+
+    return result;
 }
