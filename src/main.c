@@ -15,6 +15,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    if (init_database(&db) != 0) {
+        return 1;
+    }
+
     int result = cli_run(db, argc, argv);
 
     sqlite3_close(db);

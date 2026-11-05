@@ -18,14 +18,17 @@ int create_conn(sqlite3 **db) {
         return 1;
     }
 
+    return 0;
+}
+
+int init_database(sqlite3 **db) {
     // Initial script
     const char *sql = "CREATE TABLE IF NOT EXISTS tasks ("
                       "id INTEGER PRIMARY KEY,"
                       "title VARCHAR(255) NOT NULL,"
                       "done INTEGER NOT NULL DEFAULT 0"
                       ");";
-
-    rc = sqlite3_exec(*db, sql, NULL, NULL, NULL);
+    int rc = sqlite3_exec(*db, sql, NULL, NULL, NULL);
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Database error: %s\n", sqlite3_errmsg(*db));

@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 int create_conn(sqlite3 **db);
+int init_database(sqlite3 **db);
 
 // Tasks work
 int fetch_tasks(sqlite3 *db, int page, size_t page_size, TaskList *out);
