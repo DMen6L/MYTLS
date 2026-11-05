@@ -55,18 +55,15 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
              state->selected < state->tasks.count - 1)
         state->selected++;
     // Toggle done/undone
-    else if (ch == 'd' || ch == 'u') {
+    else if (ch == 'x') {
         if (state->selected >= state->tasks.count) {
             return;
         }
 
         Task *task = &state->tasks.items[state->selected];
-        int desired_done = (ch == 'd');
 
-        if (task->done != desired_done) {
-            if (set_task_done(db, task->id, !task->done) == 0)
-                task->done = !task->done;
-        }
+        if (set_task_done(db, task->id, !task->done) == 0)
+            task->done = !task->done;
     }
     // Add new task
     else if (ch == 'a') {
@@ -83,7 +80,7 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
                 state->tasks.count++;
             }
         }
-    } else if (ch == 'x') {
+    } else if (ch == 'd') {
         if (state->selected >= state->tasks.count)
             return;
         Task *task = &state->tasks.items[state->selected];
