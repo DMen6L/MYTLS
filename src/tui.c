@@ -5,40 +5,55 @@
 #include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-int tui_run(sqlite3 *db) {
-    // Initialize TUI state
-    TuiState state = {.tasks = {0}, .selected = 0, .running = 1};
+int tui_run(sqlite3 *db, TuiState *state) {
+    fetch_tasks(db, 0, PAGE_SIZE, &state->tasks, state->err_txt,
+                sizeof(state->err_txt));
 
-    if (fetch_tasks(db, 0, PAGE_SIZE, &state.tasks) != 0) {
-        fprintf(stderr, "Could not load tasks\n");
+    if (state->err_txt[0] != '\0')
         return 1;
-    }
 
     if (initscr() == NULL) {
-        task_list_free(&state.tasks);
-        fprintf(stderr, "Could not initialize the curses screen");
+        task_list_free(&state->tasks);
+        snprintf(state->err_txt, sizeof(state->err_txt),
+                 "Could not initialize the curses screen");
         return 1;
     }
 
-    cbreak();             // Receive input without pressing Enter
-    noecho();             // Don't print typed keys automatically
-    keypad(stdscr, TRUE); // Recognize arrow keys
+    if (cbreak() == ERR || noecho() == ERR || keypad(stdscr, TRUE) == ERR) {
+        snprintf(state->err_txt, sizeof(state->err_txt),
+                 "tui_run: configuring terminal input failed");
+        endwin();
+        task_list_free(&state->tasks);
+        return 1;
+    }
     curs_set(0);
 
-    while (state.running) {
+    while (state->running) {
         erase();
-        list_tasks(&state.tasks, state.selected);
+        list_tasks(&state->tasks, state->selected);
         int ch = getch();
 
-        parse_controlch(db, &state, ch);
+        if (ch == ERR) {
+            snprintf(state->err_txt, sizeof(state->err_txt),
+                     "tui_run: reading keyboard input failed");
+        } else {
+            parse_controlch(db, state, ch);
+        }
+
+        if (state->err_txt[0] != '\0')
+            state->running = 0;
     }
 
-    endwin();
-    task_list_free(&state.tasks);
+    if (endwin() == ERR && state->err_txt[0] == '\0') {
+        snprintf(state->err_txt, sizeof(state->err_txt),
+                 "tui_run: restoring terminal failed");
+    }
+    task_list_free(&state->tasks);
 
-    return 0;
+    return state->err_txt[0] == '\0' ? 0 : 1;
 }
 
 void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
@@ -51,7 +66,7 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
              state->selected > 0)
         state->selected--;
     // The same move logic but down
-    else if ((ch == KEY_DOWN || ch == 'j') &&
+    else if ((ch == KEY_DOWN || ch == 'j') && state->tasks.count > 0 &&
              state->selected < state->tasks.count - 1)
         state->selected++;
     // Toggle done/undone
@@ -61,31 +76,49 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
         }
 
         Task *task = &state->tasks.items[state->selected];
-
-        if (set_task_done(db, task->id, !task->done) == 0)
+        set_task_done(db, task->id, !task->done, state->err_txt,
+                      sizeof(state->err_txt));
+        if (state->err_txt[0] == '\0')
             task->done = !task->done;
     }
     // Add new task
     else if (ch == 'a') {
         char title[TITLE_SIZE] = {0};
 
-        if (prompt_new_task(title, TITLE_SIZE) == 0) {
-            Task new_task = {.id = -1, .done = 0};
+        prompt_new_task(title, TITLE_SIZE, state->err_txt,
+                        sizeof(state->err_txt));
 
-            strcpy(new_task.title, title);
+        if (state->err_txt[0] != '\0') {
+            return;
+        }
 
-            if (add_task(db, &new_task) == 0 &&
-                state->tasks.count < PAGE_SIZE) {
-                state->tasks.items[state->tasks.count] = new_task;
-                state->tasks.count++;
+        Task new_task = {.id = -1, .done = 0};
+
+        strcpy(new_task.title, title);
+
+        /* Reserve space before inserting so an allocation failure cannot lose
+         * the new task from the displayed list. */
+        if (state->tasks.count < PAGE_SIZE && state->tasks.items == NULL) {
+            state->tasks.items = malloc(PAGE_SIZE * sizeof(*state->tasks.items));
+            if (state->tasks.items == NULL) {
+                snprintf(state->err_txt, sizeof(state->err_txt),
+                         "parse_controlch: allocating task buffer failed");
+                return;
             }
+        }
+
+        add_task(db, &new_task, state->err_txt, sizeof(state->err_txt));
+
+        if (state->tasks.count < PAGE_SIZE && state->err_txt[0] == '\0') {
+            state->tasks.items[state->tasks.count] = new_task;
+            state->tasks.count++;
         }
     } else if (ch == 'd') {
         if (state->selected >= state->tasks.count)
             return;
         Task *task = &state->tasks.items[state->selected];
 
-        prompt_task_del(db, task);
+        prompt_task_del(db, task, state->err_txt, sizeof(state->err_txt));
 
         // If task is deleted shift it to the left
         if (task->id == -1) {
@@ -104,7 +137,7 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
     }
 }
 
-int list_tasks(TaskList *tasks, int selected) {
+void list_tasks(TaskList *tasks, int selected) {
     mvprintw(1, 2, "TASK MANAGER");
     mvprintw(3, 2, "%-5s %-20s %-10s", "ID", "TASK", "STATUS");
 
@@ -125,13 +158,17 @@ int list_tasks(TaskList *tasks, int selected) {
 
     mvprintw(tasks->count + 6, 2, "UP/DOWN: NAVIGATE | q: QUIT");
     refresh();
-
-    return 0;
 }
 
-int prompt_new_task(char *title, size_t capacity) {
-    if (capacity < 2 || capacity >= INT_MAX)
-        return 1;
+void prompt_new_task(char *title, size_t capacity, char *err_txt,
+                     size_t err_capacity) {
+    if (err_capacity > 0)
+        err_txt[0] = '\0';
+    if (title == NULL || capacity < 2 || capacity >= INT_MAX) {
+        snprintf(err_txt, err_capacity,
+                 "prompt_new_task: title buffer or capacity is invalid");
+        return;
+    }
 
     int height = 5;
     int width = 50;
@@ -139,8 +176,10 @@ int prompt_new_task(char *title, size_t capacity) {
     int x = (COLS - width) / 2;
 
     WINDOW *win = newwin(height, width, y, x);
-    if (!win)
-        return 1;
+    if (!win) {
+        snprintf(err_txt, err_capacity, "prompt_new_task: creating input window failed");
+        return;
+    }
 
     box(win, 0, 0);
     mvwprintw(win, 1, 2, "New task title:");
@@ -158,18 +197,26 @@ int prompt_new_task(char *title, size_t capacity) {
     touchwin(stdscr);
     refresh();
 
-    return result == OK && title[0] != '\0' ? 0 : 1;
+    if (result != OK) {
+        snprintf(err_txt, err_capacity,
+                 "prompt_new_task: reading title failed");
+    }
 }
 
-int prompt_task_del(sqlite3 *db, Task *task) {
+void prompt_task_del(sqlite3 *db, Task *task, char *err_txt,
+                     size_t err_capacity) {
+    if (err_capacity > 0)
+        err_txt[0] = '\0';
     int height = 5;
     int width = 50;
     int y = (LINES - height) / 2;
     int x = (COLS - width) / 2;
 
     WINDOW *win = newwin(height, width, y, x);
-    if (!win)
-        return 1;
+    if (!win) {
+        snprintf(err_txt, err_capacity, "prompt_task_del: creating confirmation window failed");
+        return;
+    }
 
     box(win, 0, 0);
     mvwprintw(win, 1, 2, "Are you sure you wanna delete this task?");
@@ -181,21 +228,21 @@ int prompt_task_del(sqlite3 *db, Task *task) {
 
     do {
         choice = wgetch(win);
-    } while (choice != 'y' && choice != 'n');
+    } while (choice != 'y' && choice != 'n' && choice != ERR);
 
-    int result = 1;
+    if (choice == ERR) {
+        snprintf(err_txt, err_capacity,
+                 "prompt_task_del: reading confirmation failed");
+    }
 
     if (choice == 'y') {
-        if (del_task(db, task->id) == 0) {
+        del_task(db, task->id, err_txt, err_capacity);
+        if (err_txt[0] == '\0')
             task->id = -1;
-            result = 0;
-        }
     }
 
     delwin(win);
 
     touchwin(stdscr);
     refresh();
-
-    return result;
 }
