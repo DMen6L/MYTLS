@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    init_database(&db, state.err_txt, sizeof(state.err_txt));
+    apply_migration(db, state.err_txt, sizeof(state.err_txt));
 
     if (state.err_txt[0] != '\0') {
         fprintf(stderr, "%s\n", state.err_txt);
@@ -39,7 +39,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "%s\n", state.err_txt);
 
     if (sqlite3_close(db) != SQLITE_OK) {
-        fprintf(stderr, "main: closing database failed: %s\n", sqlite3_errmsg(db));
+        fprintf(stderr, "main: closing database failed: %s\n",
+                sqlite3_errmsg(db));
         result = 1;
     } else {
         db = NULL;

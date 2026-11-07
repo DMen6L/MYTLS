@@ -20,6 +20,15 @@ static const Migration migrations[] = {
         "done INTEGER NOT NULL DEFAULT 0"
         ");",
     },
+    {
+        2,
+        "ALTER TABLE tasks ADD COLUMN goal INTEGER NOT NULL DEFAULT 1;"
+        "ALTER TABLE tasks ADD COLUMN progress INTEGER NOT NULL DEFAULT 0;",
+    },
+    {
+        3,
+        "ALTER TABLE tasks DROP COLUMN done;",
+    },
 };
 
 /* Error buffers are cleared on entry. For positive err_capacity, err_txt must
@@ -27,7 +36,7 @@ static const Migration migrations[] = {
  * Pass NULL with capacity 0 only when error text is not needed. */
 void create_conn(sqlite3 **db, char *err_txt, size_t err_capacity);
 int get_db_version(sqlite3 *db, char *err_txt, size_t err_capacity);
-void init_database(sqlite3 **db, char *err_txt, size_t err_capacity);
+void apply_migration(sqlite3 *db, char *err_txt, size_t err_capacity);
 
 // Tasks work
 void fetch_tasks(sqlite3 *db, int page, size_t page_size, TaskList *out,

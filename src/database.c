@@ -3,11 +3,11 @@
 
 #include <ctype.h>
 #include <limits.h>
-#include <string.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void create_conn(sqlite3 **db, char *err_txt, size_t err_capacity) {
     if (err_capacity > 0) {
@@ -56,32 +56,93 @@ int get_db_version(sqlite3 *db, char *err_txt, size_t err_capacity) {
     version = sqlite3_column_int(stmt, 0);
     if (sqlite3_finalize(stmt) != SQLITE_OK) {
         snprintf(err_txt, err_capacity,
-                 "get_db_version: finalizing version query failed: %s", sqlite3_errmsg(db));
+                 "get_db_version: finalizing version query failed: %s",
+                 sqlite3_errmsg(db));
         return -1;
     }
     return version;
 }
 
-// TODO: Change the function to apply_migrations
-void init_database(sqlite3 **db, char *err_txt, size_t err_capacity) {
-    if (err_capacity > 0) {
+void apply_migration(sqlite3 *db, char *err_txt, size_t err_capacity) {
+    if (err_capacity > 0)
         err_txt[0] = '\0';
+    if (db == NULL) {
+        snprintf(err_txt, err_capacity,
+                 "apply_migration: database connection is required");
+        return;
     }
 
-    // Initial script
-    const char *sql = "CREATE TABLE IF NOT EXISTS tasks ("
-                      "id INTEGER PRIMARY KEY,"
-                      "title VARCHAR(255) NOT NULL,"
-                      "done INTEGER NOT NULL DEFAULT 0"
-                      ");";
-    int rc = sqlite3_exec(*db, sql, NULL, NULL, NULL);
+    int current = get_db_version(db, err_txt, err_capacity);
+    if (current < 0)
+        return; /* Preserve the detailed version-reading error. */
 
-    if (rc != SQLITE_OK) {
+    size_t count = sizeof(migrations) / sizeof(migrations[0]);
+    int latest = count > 0 ? migrations[count - 1].version : 0;
+    if (current > latest) {
         snprintf(err_txt, err_capacity,
-                 "init_database: creating task table failed: %s",
-                 sqlite3_errmsg(*db));
-        sqlite3_close(*db);
-        *db = NULL;
+                 "apply_migration: database version %d is newer than supported version %d",
+                 current, latest);
+        return;
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        const Migration *m = &migrations[i];
+        if (m->version <= current)
+            continue;
+
+        if (sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK) {
+            snprintf(err_txt, err_capacity,
+                     "apply_migration: version %d begin failed: %s",
+                     m->version, sqlite3_errmsg(db));
+            return;
+        }
+
+        /* Another process may have migrated while we waited for the lock. */
+        current = get_db_version(db, err_txt, err_capacity);
+        if (current < 0)
+            goto rollback;
+        if (current > latest) {
+            snprintf(err_txt, err_capacity,
+                     "apply_migration: database version %d is newer than supported version %d",
+                     current, latest);
+            goto rollback;
+        }
+
+        const char *stage = "SQL execution";
+        int rc = SQLITE_OK;
+        if (m->version > current) {
+            rc = sqlite3_exec(db, m->sql, NULL, NULL, NULL);
+            if (rc == SQLITE_OK) {
+                char sql[64];
+                snprintf(sql, sizeof(sql), "PRAGMA user_version = %d;", m->version);
+                stage = "version update";
+                rc = sqlite3_exec(db, sql, NULL, NULL, NULL);
+            }
+        }
+        if (rc == SQLITE_OK) {
+            stage = "commit";
+            rc = sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL);
+        }
+        if (rc == SQLITE_OK) {
+            if (m->version > current)
+                current = m->version;
+            continue;
+        }
+
+        snprintf(err_txt, err_capacity,
+                 "apply_migration: version %d %s failed: %s",
+                 m->version, stage, sqlite3_errmsg(db));
+
+rollback:
+        /* Some SQLite failures automatically roll back the transaction. */
+        if (!sqlite3_get_autocommit(db) &&
+            sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL) != SQLITE_OK &&
+            err_capacity > 0) {
+            size_t used = strlen(err_txt);
+            snprintf(err_txt + used, err_capacity - used,
+                     "; rollback failed: %s", sqlite3_errmsg(db));
+        }
+        return;
     }
 }
 
@@ -243,21 +304,24 @@ void set_task_done(sqlite3 *db, int task_id, int done, char *err_txt,
         err_txt[0] = '\0';
     if (db == NULL || task_id <= 0 || (done != 0 && done != 1)) {
         snprintf(err_txt, err_capacity,
-                 "set_task_done: database, positive task ID, and boolean status required");
+                 "set_task_done: database, positive task ID, and boolean "
+                 "status required");
         return;
     }
 
     sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, "UPDATE tasks SET done = ? WHERE id = ?;",
-                         -1, &stmt, NULL) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(db, "UPDATE tasks SET done = ? WHERE id = ?;", -1,
+                           &stmt, NULL) != SQLITE_OK) {
         snprintf(err_txt, err_capacity,
-                 "set_task_done: preparing statement failed: %s", sqlite3_errmsg(db));
+                 "set_task_done: preparing statement failed: %s",
+                 sqlite3_errmsg(db));
         return;
     }
     if (sqlite3_bind_int(stmt, 1, done) != SQLITE_OK ||
         sqlite3_bind_int(stmt, 2, task_id) != SQLITE_OK) {
         snprintf(err_txt, err_capacity,
-                 "set_task_done: binding parameters failed: %s", sqlite3_errmsg(db));
+                 "set_task_done: binding parameters failed: %s",
+                 sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return;
     }
@@ -268,12 +332,14 @@ void add_task(sqlite3 *db, Task *new_task, char *err_txt, size_t err_capacity) {
     if (err_capacity > 0)
         err_txt[0] = '\0';
     if (db == NULL || new_task == NULL) {
-        snprintf(err_txt, err_capacity, "add_task: database and task are required");
+        snprintf(err_txt, err_capacity,
+                 "add_task: database and task are required");
         return;
     }
     const char *end = memchr(new_task->title, '\0', sizeof(new_task->title));
     if (end == NULL) {
-        snprintf(err_txt, err_capacity, "add_task: title exceeds maximum length");
+        snprintf(err_txt, err_capacity,
+                 "add_task: title exceeds maximum length");
         return;
     }
     const char *text = new_task->title;
@@ -285,15 +351,17 @@ void add_task(sqlite3 *db, Task *new_task, char *err_txt, size_t err_capacity) {
     }
 
     sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, "INSERT INTO tasks (title) VALUES(?);",
-                         -1, &stmt, NULL) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(db, "INSERT INTO tasks (title) VALUES(?);", -1,
+                           &stmt, NULL) != SQLITE_OK) {
         snprintf(err_txt, err_capacity,
-                 "add_task: preparing statement failed: %s", sqlite3_errmsg(db));
+                 "add_task: preparing statement failed: %s",
+                 sqlite3_errmsg(db));
         return;
     }
-    if (sqlite3_bind_text(stmt, 1, new_task->title, -1, SQLITE_TRANSIENT) != SQLITE_OK) {
-        snprintf(err_txt, err_capacity,
-                 "add_task: binding title failed: %s", sqlite3_errmsg(db));
+    if (sqlite3_bind_text(stmt, 1, new_task->title, -1, SQLITE_TRANSIENT) !=
+        SQLITE_OK) {
+        snprintf(err_txt, err_capacity, "add_task: binding title failed: %s",
+                 sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return;
     }
@@ -303,7 +371,8 @@ void add_task(sqlite3 *db, Task *new_task, char *err_txt, size_t err_capacity) {
     sqlite3_int64 id = sqlite3_last_insert_rowid(db);
     if (id <= 0 || id > INT_MAX) {
         snprintf(err_txt, err_capacity,
-                 "add_task: task was inserted but its ID exceeds the supported range");
+                 "add_task: task was inserted but its ID exceeds the supported "
+                 "range");
         return;
     }
     new_task->id = (int)id;
@@ -313,20 +382,22 @@ void del_task(sqlite3 *db, int task_id, char *err_txt, size_t err_capacity) {
     if (err_capacity > 0)
         err_txt[0] = '\0';
     if (db == NULL || task_id <= 0) {
-        snprintf(err_txt, err_capacity, "del_task: database and positive task ID required");
+        snprintf(err_txt, err_capacity,
+                 "del_task: database and positive task ID required");
         return;
     }
 
     sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, "DELETE FROM tasks WHERE id = ?;",
-                         -1, &stmt, NULL) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(db, "DELETE FROM tasks WHERE id = ?;", -1, &stmt,
+                           NULL) != SQLITE_OK) {
         snprintf(err_txt, err_capacity,
-                 "del_task: preparing statement failed: %s", sqlite3_errmsg(db));
+                 "del_task: preparing statement failed: %s",
+                 sqlite3_errmsg(db));
         return;
     }
     if (sqlite3_bind_int(stmt, 1, task_id) != SQLITE_OK) {
-        snprintf(err_txt, err_capacity,
-                 "del_task: binding task ID failed: %s", sqlite3_errmsg(db));
+        snprintf(err_txt, err_capacity, "del_task: binding task ID failed: %s",
+                 sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return;
     }
