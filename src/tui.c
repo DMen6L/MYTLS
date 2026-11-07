@@ -99,7 +99,8 @@ void parse_controlch(sqlite3 *db, TuiState *state, int ch) {
         /* Reserve space before inserting so an allocation failure cannot lose
          * the new task from the displayed list. */
         if (state->tasks.count < PAGE_SIZE && state->tasks.items == NULL) {
-            state->tasks.items = malloc(PAGE_SIZE * sizeof(*state->tasks.items));
+            state->tasks.items =
+                malloc(PAGE_SIZE * sizeof(*state->tasks.items));
             if (state->tasks.items == NULL) {
                 snprintf(state->err_txt, sizeof(state->err_txt),
                          "parse_controlch: allocating task buffer failed");
@@ -149,7 +150,7 @@ void list_tasks(TaskList *tasks, int selected) {
 
         Task *task = &tasks->items[i];
 
-        mvprintw(5 + i, 2, "%-5d %-20.20s %-10s", task->id, task->title,
+        mvprintw(5 + i, 2, "%-5d %-20.20s %-10s", i + 1, task->title,
                  task->done ? "Done" : "Pending");
 
         if (selected == i)
@@ -177,7 +178,8 @@ void prompt_new_task(char *title, size_t capacity, char *err_txt,
 
     WINDOW *win = newwin(height, width, y, x);
     if (!win) {
-        snprintf(err_txt, err_capacity, "prompt_new_task: creating input window failed");
+        snprintf(err_txt, err_capacity,
+                 "prompt_new_task: creating input window failed");
         return;
     }
 
@@ -214,7 +216,8 @@ void prompt_task_del(sqlite3 *db, Task *task, char *err_txt,
 
     WINDOW *win = newwin(height, width, y, x);
     if (!win) {
-        snprintf(err_txt, err_capacity, "prompt_task_del: creating confirmation window failed");
+        snprintf(err_txt, err_capacity,
+                 "prompt_task_del: creating confirmation window failed");
         return;
     }
 
