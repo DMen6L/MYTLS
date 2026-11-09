@@ -9,6 +9,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(SQLite3 REQUIRED)
 find_package(Curses REQUIRED)
+find_path(FORM_INCLUDE_DIR NAMES form.h HINTS ${CURSES_INCLUDE_DIRS} REQUIRED)
+find_library(FORM_LIBRARY NAMES form HINTS ${CURSES_LIBRARY_DIRS} REQUIRED)
 
 add_executable(mytls
     src/main.c
@@ -17,6 +19,6 @@ add_executable(mytls
     src/task.c
 )
 
-target_include_directories(mytls PRIVATE include ${CURSES_INCLUDE_DIRS})
+target_include_directories(mytls PRIVATE include ${CURSES_INCLUDE_DIRS} ${FORM_INCLUDE_DIR})
 
-target_link_libraries(mytls PRIVATE SQLite3::SQLite3 ${CURSES_LIBRARIES})
+target_link_libraries(mytls PRIVATE SQLite3::SQLite3 ${FORM_LIBRARY} ${CURSES_LIBRARIES})

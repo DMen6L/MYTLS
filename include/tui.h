@@ -15,7 +15,9 @@ typedef struct {
 
 int tui_run(sqlite3 *db, TuiState *state, Error *error);
 void list_tasks(const TaskList *tasks, size_t selected);
-void prompt_new_task(char *title, size_t capacity, Error *error);
+/* Return 1 for acceptance, 0 for cancellation, -1 for failure.
+ * out is unchanged unless accepted. */
+int prompt_new_task(Task *out, Error *error);
 /* Return 1 for confirmation, 0 for cancellation, -1 for failure. */
 int prompt_task_del(const Task *task, Error *error);
 void parse_controlch(sqlite3 *db, TuiState *state, int ch, Error *error);
