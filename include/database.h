@@ -6,9 +6,31 @@
 #include "error.h"
 #include "task.h"
 #include <stddef.h>
+#include <string.h>
 
 #define TASK_COLUMNS "id, title, progress, goal"
 #define PAGE_SIZE 50
+
+typedef enum {
+    OP_SELECT,
+    OP_INSERT,
+} Operation;
+
+// Options for operations
+typedef struct {
+    int limit;
+    int offset;
+    const char *order_by;
+} SelectOpts;
+
+typedef union {
+    SelectOpts select;
+} SqlOpts;
+
+typedef struct {
+    Operation op;
+    SqlOpts opts;
+} SqlQuery;
 
 typedef struct {
     int version;
@@ -35,28 +57,16 @@ static const Migration migrations[] = {
     },
 };
 
-/* error must point to a valid Error. Operations clear its message on entry;
- * a nonempty message reports failure. Messages exclude trailing newlines. */
-void create_conn(sqlite3 **db, Error *error);
-int get_db_version(sqlite3 *db, Error *error);
-void apply_migration(sqlite3 *db, Error *error);
+int create_conn(sqlite3 **db, const char *dbName, Error *err);
+int db_ver(sqlite3 *db, Error *err);
+int migrate(sqlite3 *db, Error *err);
 
-// Tasks work
-void fetch_tasks(sqlite3 *db, int page, size_t page_size, TaskList *out,
-                 Error *error);
-void task_list_free(TaskList *list);
+int fetch_table(sqlite3 *db, const char *tableName, const char *const cols[],
+                void *out, size_t count, Error *err);
+int add_val(sqlite3 *db, const char *tableName, const char *const cols[],
+            const void *const vals[], const ValueType *const types,
+            size_t count, void *retrId, Error *err);
 
-/* Parallel arrays describe count fields: text values point to NUL-terminated
- * strings; integer values point to int objects. All pointers must remain valid
- * until the call returns. Fields may be omitted on insert to use SQL defaults.
- * IDs are database-owned. Both functions return 0 on success, 1 on failure.
- * add_task writes new_id only on success; new_id must point to writable storage. */
-int update_task(sqlite3 *db, int task_id, const char *const *cols,
-                const ValueType *types, const void *const *values,
-                size_t count, Error *error);
-int add_task(sqlite3 *db, const char *const *cols, const ValueType *types,
-             const void *const *values, size_t count, sqlite3_int64 *new_id,
-             Error *error);
-void del_task(sqlite3 *db, int task_id, Error *error);
+int free_table_list(void *list, const char *tableName, Error *err);
 
 #endif
