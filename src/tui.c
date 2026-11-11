@@ -103,7 +103,7 @@ int prompt_new_task(sqlite3 *db, Task *newTask, Error *err) {
     mvwprintw(win, 3, 2, "Title:");
     mvwprintw(win, 6, 2, "Goal:");
 
-    mvwprintw(win, 9, 2, "Enter: Save");
+    mvwprintw(win, 9, 2, "Enter: Save | q: quit | a: add task");
     wrefresh(win);
 
     // Enable typing
@@ -145,7 +145,7 @@ int prompt_new_task(sqlite3 *db, Task *newTask, Error *err) {
     const void *vals[] = {newTask->title, &newTask->progress, &newTask->goal};
     const ValueType types[] = {VALUE_TEXT, VALUE_INT, VALUE_INT};
 
-    rc = add_val(db, "tasks", cols, vals, types, 3, &newTask->id, err);
+    rc = add_row(db, "tasks", cols, vals, types, 3, &newTask->id, err);
 
     if (rc != 0)
         goto fail;
@@ -167,6 +167,56 @@ fail:
     return 1;
 }
 
+int prompt_task_del(const Task *task) {
+    const int height = 7;
+    const int width = 50;
+
+    if (LINES < height || COLS < width)
+        return 0;
+
+    int y = (LINES - height) / 2;
+    int x = (COLS - width) / 2;
+
+    WINDOW *win = newwin(height, width, y, x);
+
+    if (!win)
+        return 0;
+
+    keypad(win, TRUE);
+
+    box(win, 0, 0);
+
+    mvwprintw(win, 1, 2, "Delete task?");
+    mvwprintw(win, 2, 2, "Task: %-.*s", width - 9, task->title);
+    mvwprintw(win, 4, 2, "[y] Yes    [n] No    [Esc] Cancel");
+
+    wrefresh(win);
+
+    int confirmed = 0;
+    int ch;
+
+    while (1) {
+        ch = wgetch(win);
+
+        if (ch == 'y' || ch == 'Y') {
+            confirmed = 1;
+            break;
+        }
+
+        if (ch == 'n' || ch == 'N' || ch == 27) {
+            break;
+        }
+    }
+
+    delwin(win);
+
+    // Redraw the underlying screen
+    touchwin(stdscr);
+    refresh();
+
+    return confirmed;
+}
+
 void handle_key(sqlite3 *db, TuiState *state, const int ch, Error *err) {
     switch (ch) {
     case 'k':
@@ -186,6 +236,75 @@ void handle_key(sqlite3 *db, TuiState *state, const int ch, Error *err) {
             state->tasks.items[state->tasks.count] = newTask;
             state->tasks.count++;
         }
+        break;
+    case 'x': {
+        if (state->selected >= state->tasks.count)
+            break;
+
+        Task *task = &state->tasks.items[state->selected];
+
+        // Don't exceed the task's goal
+        if (task->progress >= task->goal)
+            break;
+
+        int new_progress = task->progress + 1;
+
+        const char *cols[] = {"progress"};
+        const void *vals[] = {&new_progress};
+        const ValueType types[] = {VALUE_INT};
+
+        if (upd_row(db, "tasks", cols, vals, types, &task->id, 1, err) != 0) {
+            state->running = 0;
+            break;
+        }
+
+        // Update in-memory task only after SQLite succeeds
+        task->progress = new_progress;
+        break;
+    }
+    case 'r': {
+        if (state->selected >= state->tasks.count)
+            break;
+
+        Task *task = &state->tasks.items[state->selected];
+
+        int new_progress = 0;
+
+        const char *cols[] = {"progress"};
+        const void *vals[] = {&new_progress};
+        const ValueType types[] = {VALUE_INT};
+
+        if (upd_row(db, "tasks", cols, vals, types, &task->id, 1, err) != 0) {
+            state->running = 0;
+            break;
+        }
+
+        task->progress = 0;
+        break;
+    }
+    case 'd':
+        TaskList *tasks = &state->tasks;
+
+        if (state->selected >= tasks->count)
+            break;
+
+        Task *task = &tasks->items[state->selected];
+
+        if (!prompt_task_del(task))
+            break;
+
+        if (del_row(db, "tasks", &task->id, err) != 0) {
+            state->running = 0;
+            break;
+        }
+
+        size_t index = state->selected;
+        memmove(&tasks->items[index], &tasks->items[index + 1],
+                (tasks->count - index - 1) * sizeof(Task));
+        tasks->count--;
+
+        if (state->selected > 0 && state->selected >= tasks->count)
+            state->selected--;
         break;
     case 'q':
         state->running = 0;

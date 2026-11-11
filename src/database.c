@@ -166,7 +166,7 @@ int migrate(sqlite3 *db, Error *err) {
 // General SQL value reader
 int row2val(sqlite3_stmt *stmt, const char *tableName, void *dest, Error *err) {
     if (strcmp(tableName, "tasks") == 0) {
-        Task *task = (Task *)dest;
+        Task *task = dest;
 
         task->id = sqlite3_column_int(stmt, 0);
         unsigned const char *title = sqlite3_column_text(stmt, 1);
@@ -242,6 +242,27 @@ void sql_build(sqlite3_str *builder, SqlQuery query, const char *tableName,
         }
 
         sqlite3_str_appendall(builder, ");");
+        break;
+
+    case OP_UPDATE:
+        sqlite3_str_appendf(builder, "UPDATE \"%w\" SET ", tableName);
+
+        for (size_t i = 0; i < count; i++) {
+            if (i > 0)
+                sqlite3_str_appendall(builder, ", ");
+
+            sqlite3_str_appendf(builder, "\"%w\" = ?", cols[i]);
+        }
+
+        if (query.opts.update.upd_by)
+            sqlite3_str_appendf(builder, "WHERE \"%w\" = ?;",
+                                query.opts.update.upd_by);
+
+        break;
+
+    case OP_DELETE:
+        sqlite3_str_appendf(builder, "DELETE FROM \"%w\" WHERE \"%w\" = ?;",
+                            tableName, query.opts.delete.del_by);
         break;
 
     default:
@@ -363,7 +384,7 @@ int bind_val(sqlite3_stmt *stmt, int index, const void *val, ValueType type) {
     }
 }
 
-int add_val(sqlite3 *db, const char *tableName, const char *const cols[],
+int add_row(sqlite3 *db, const char *tableName, const char *const cols[],
             const void *const vals[], const ValueType *const types,
             size_t count, void *retrId, Error *err) {
     if (!db || !cols || !vals) {
@@ -429,6 +450,162 @@ int add_val(sqlite3 *db, const char *tableName, const char *const cols[],
 fail:
     snprintf(err->message, sizeof(err->message), "add_val: %s",
              sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    return 1;
+}
+
+int del_row(sqlite3 *db, const char *tableName, void *delId, Error *err) {
+    if (!db || !delId) {
+        snprintf(err->message, sizeof(err->message),
+                 "del_val: Incorrectly passed arguments");
+        return 1;
+    }
+
+    sqlite3_str *builder = sqlite3_str_new(db);
+
+    if (!builder) {
+        snprintf(err->message, sizeof(err->message),
+                 "del_val: builder allocation failed");
+        return 1;
+    }
+
+    sql_build(builder,
+              (SqlQuery){
+                  .op = OP_DELETE,
+                  .opts.delete = {.del_by = "id"},
+              },
+              tableName, NULL, 0, err);
+
+    char *sql = sqlite3_str_finish(builder);
+
+    sqlite3_stmt *stmt = NULL;
+
+    if (strcmp(tableName, "tasks") == 0) {
+        int *taskId = delId;
+
+        int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+        sqlite3_free(sql);
+
+        bind_val(stmt, 1, delId, VALUE_INT);
+
+        if (rc != SQLITE_OK)
+            goto fail;
+
+        rc = sqlite3_step(stmt);
+        if (rc != SQLITE_DONE)
+            goto fail;
+
+        if (sqlite3_changes(db) == 0) {
+            snprintf(err->message, sizeof(err->message),
+                     "del_val: task not found");
+            sqlite3_finalize(stmt);
+            return 1;
+        }
+
+        rc = sqlite3_finalize(stmt);
+
+        if (rc != SQLITE_OK) {
+            snprintf(err->message, sizeof(err->message),
+                     "add_val: finalize failed: %s", sqlite3_errmsg(db));
+            return 1;
+        }
+
+        *taskId = -1;
+        return 0;
+    } else {
+        snprintf(err->message, sizeof(err->message),
+                 "del_row: Incompatible table name %s", tableName);
+        return 1;
+    }
+
+fail:
+    snprintf(err->message, sizeof(err->message), "add_val: %s",
+             sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    return 1;
+}
+
+int upd_row(sqlite3 *db, const char *tableName, const char *const cols[],
+            const void *const newVals[], const ValueType *types, void *updId,
+            size_t count, Error *err) {
+
+    if (!db || !tableName || !cols || !newVals || !types || !updId || !err ||
+        count == 0 || count >= INT_MAX) {
+        if (err)
+            snprintf(err->message, sizeof(err->message),
+                     "upd_row: invalid arguments");
+        return 1;
+    }
+
+    if (strcmp(tableName, "tasks") != 0) {
+        snprintf(err->message, sizeof(err->message),
+                 "upd_row: unsupported table %s", tableName);
+        return 1;
+    }
+
+    sqlite3_str *builder = sqlite3_str_new(db);
+
+    if (!builder) {
+        snprintf(err->message, sizeof(err->message),
+                 "upd_row: builder allocation failed");
+        return 1;
+    }
+
+    sql_build(builder,
+              (SqlQuery){.op = OP_UPDATE, .opts.update = {.upd_by = "id"}},
+              tableName, cols, count, err);
+
+    char *sql = sqlite3_str_finish(builder);
+
+    if (!sql) {
+        snprintf(err->message, sizeof(err->message),
+                 "upd_row: SQL build failed");
+        return 1;
+    }
+
+    sqlite3_stmt *stmt = NULL;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+
+    sqlite3_free(sql);
+
+    if (rc != SQLITE_OK)
+        goto fail;
+
+    // Bind new values
+    for (size_t i = 0; i < count; i++) {
+        rc = bind_val(stmt, (int)i + 1, newVals[i], types[i]);
+
+        if (rc != SQLITE_OK)
+            goto fail;
+    }
+
+    // Bind the task ID
+    rc = bind_val(stmt, (int)count + 1, updId, VALUE_INT);
+
+    if (rc != SQLITE_OK)
+        goto fail;
+
+    // Execute UPDATE
+    rc = sqlite3_step(stmt);
+
+    if (rc != SQLITE_DONE)
+        goto fail;
+
+    // Finalize
+    rc = sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_OK) {
+        snprintf(err->message, sizeof(err->message),
+                 "upd_row: finalize failed: %s", sqlite3_errmsg(db));
+        return 1;
+    }
+
+    return 0;
+
+fail:
+    snprintf(err->message, sizeof(err->message), "upd_row: SQLite error %d: %s",
+             rc, sqlite3_errmsg(db));
+
     sqlite3_finalize(stmt);
     return 1;
 }

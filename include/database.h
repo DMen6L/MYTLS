@@ -14,6 +14,8 @@
 typedef enum {
     OP_SELECT,
     OP_INSERT,
+    OP_DELETE,
+    OP_UPDATE,
 } Operation;
 
 // Options for operations
@@ -22,9 +24,17 @@ typedef struct {
     int offset;
     const char *order_by;
 } SelectOpts;
+typedef struct {
+    const char *del_by;
+} DeleteOpts;
+typedef struct {
+    const char *upd_by;
+} UpdateOpts;
 
 typedef union {
     SelectOpts select;
+    DeleteOpts delete;
+    UpdateOpts update;
 } SqlOpts;
 
 typedef struct {
@@ -63,9 +73,13 @@ int migrate(sqlite3 *db, Error *err);
 
 int fetch_table(sqlite3 *db, const char *tableName, const char *const cols[],
                 void *out, size_t count, Error *err);
-int add_val(sqlite3 *db, const char *tableName, const char *const cols[],
+int add_row(sqlite3 *db, const char *tableName, const char *const cols[],
             const void *const vals[], const ValueType *const types,
             size_t count, void *retrId, Error *err);
+int upd_row(sqlite3 *db, const char *tableName, const char *const cols[],
+            const void *const newVals[], const ValueType *types, void *updId,
+            size_t count, Error *err);
+int del_row(sqlite3 *db, const char *tableName, void *delId, Error *err);
 
 int free_table_list(void *list, const char *tableName, Error *err);
 
